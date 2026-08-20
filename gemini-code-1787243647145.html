@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Twirlbykco Master hub</title>
+<style>
+  :root{
+    --bg:#FBF2F6;
+    --bg-card:#FFFFFF;
+    --bg-cream:#FFF8F3;
+    --lav:#C3AEE0;
+    --lav-dark:#8E6FBE;
+    --lav-pale:#EFE6F8;
+    --text:#4A3B52;
+    --muted:#9A8AA3;
+    --border:#F0DCE6;
+    --success:#6FAE84;
+    --success-bg:#E9F5EC;
+    --warn:#D99A3F;
+    --warn-bg:#FBF0DE;
+    --danger:#D9748A;
+    --danger-bg:#FBE7EC;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Poppins','Segoe UI',system-ui,sans-serif; -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{ font-family:'Quicksand','Poppins',sans-serif; font-weight:700; }
+  #app{max-width:1420px;margin:0 auto;padding:20px 16px 60px;}
+
+  .header{
+    background:linear-gradient(135deg,var(--lav) 0%,#D9C3EE 100%);
+    border-radius:22px; padding:22px 24px; color:#fff; position:relative; overflow:hidden; margin-bottom:18px;
+  }
+  .header::after{
+    content:""; position:absolute; right:-30px;top:-30px; width:140px;height:140px;
+    border-radius:50%; background:rgba(255,255,255,0.15);
+  }
+  .header .eyebrow{ font-size:12px;letter-spacing:1.5px;text-transform:uppercase; opacity:0.85; margin-bottom:4px; }
+  .header h1{margin:0 0 6px 0;font-size:26px;}
+  .header .sub{font-size:13px;opacity:0.92;}
+  .badges{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  .badge{
+    background:rgba(255,255,255,0.22); border:1px solid rgba(255,255,255,0.35);
+    border-radius:999px; padding:6px 13px; font-size:12px; display:flex;align-items:center;gap:6px;
+  }
+  .badge input{
+    width:65px;background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.6);
+    color:#fff;font-size:12px;font-family:inherit;text-align:right;
+  }
+  .badge input:focus{outline:none;border-bottom:1px solid #fff;}
+
+  .tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+  .tab{
+    border:none;background:var(--bg-card);color:var(--muted); padding:9px 15px;
+    border-radius:999px;font-family:'Quicksand',sans-serif; font-weight:700;font-size:13px;
+    cursor:pointer;border:1.5px solid var(--border); transition:all .15s ease;
+  }
+  .tab:hover{border-color:var(--lav);}
+  .tab.active{background:var(--lav-dark);color:#fff;border-color:var(--lav-dark);}
+
+  .cat-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+  .cat-chip{
+    padding:5px 12px; border-radius:999px; font-size:11.5px; font-weight:600;
+    background:var(--bg-cream); border:1px solid var(--border); color:var(--text); cursor:pointer;
+  }
+  .cat-chip:hover{border-color:var(--lav-dark);}
+  .cat-chip.active{background:var(--lav-dark); color:#fff; border-color:var(--lav-dark);}
+
+  .card{ background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:18px 20px; margin-bottom:16px; }
+  .card h2{margin:0 0 4px 0;font-size:16.5px;}
+  .card .hint{color:var(--muted);font-size:12px;margin:0 0 14px 0;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{ text-align:left;color:var(--muted);font-weight:600;font-size:11px; text-transform:uppercase;letter-spacing:.4px; padding:6px 6px;border-bottom:1.5px solid var(--border); }
+  td{padding:6px 6px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .num{text-align:right;font-variant-numeric:tabular-nums;}
+
+  .pill{border-radius:999px;padding:3px 8px;font-size:10.5px;font-weight:600;display:inline-block;}
+  .pill.ok{background:var(--success-bg);color:var(--success);}
+  .pill.low{background:var(--warn-bg);color:var(--warn);}
+  .pill.out{background:var(--danger-bg);color:var(--danger);}
+  .pill.cat{background:var(--lav-pale);color:var(--lav-dark);border:1px solid var(--lav);}
+
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+  .field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:110px;}
+  .field label{font-size:11px;color:var(--muted);font-weight:600;}
+  .field input,.field select{
+    padding:8px 10px;border-radius:10px;border:1.5px solid var(--border);
+    font-family:inherit;font-size:12.5px;background:var(--bg-cream);color:var(--text);
+  }
+  .field input:focus,.field select:focus{outline:none;border-color:var(--lav);}
+
+  .tbl-input{
+    width:100%; padding:4px 6px; border:1px solid var(--border); border-radius:6px;
+    background:var(--bg-cream); font-family:inherit; font-size:12px; color:var(--text);
+  }
+  .tbl-input.num-in{ text-align:right; width:60px; }
+  .tbl-input:focus{ outline:none; border-color:var(--lav-dark); background:#fff; }
+
+  .btn{ background:var(--lav-dark);color:#fff;border:none;border-radius:10px; padding:9px 16px;font-family:'Quicksand',sans-serif;font-weight:700; font-size:13px;cursor:pointer; }
+  .btn:hover{background:#7C5CAC;}
+  .btn.ghost{background:transparent;color:var(--lav-dark);border:1.5px solid var(--lav);}
+  .btn.ghost:hover{background:var(--lav-pale);}
+  .btn.danger{background:var(--danger);}
+  .btn.danger:hover{background:#C2607A;}
+  .btn.sm{padding:5px 10px;font-size:11.5px;}
+
+  .empty{ text-align:center;color:var(--muted);padding:24px 10px;font-size:13px; }
+  .icon-btn{ background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:2px 5px; }
+  .icon-btn:hover{color:var(--danger);}
+
+  .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:6px;}
+  .stat{background:var(--bg-cream);border-radius:14px;padding:12px 14px;}
+  .stat .label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
+  .stat .value{font-family:'Quicksand',sans-serif;font-weight:700;font-size:18px;margin-top:3px;}
+  .stat.profit .value.pos{color:var(--success);}
+  .stat.profit .value.neg{color:var(--danger);}
+
+  .loading{text-align:center;padding:60px 0;color:var(--muted);font-size:14px;}
+  .msg{font-size:11.5px;color:var(--muted);margin-top:4px;}
+  .search-box{
+    width:100%; margin-bottom:10px; padding:10px 14px; border-radius:12px;
+    border:2px solid var(--lav); font-family:inherit; font-size:13.5px; background:#fff;
+  }
+</style>
+</head>
+<body>
+<div id="app"><div class="loading">Loading Twirlbykco Master hub…</div></div>
+
+<script>
+const STORE_KEY = 'twirlbykco-master-system-v12';
+
+const CATEGORIES = [
+  "ClickiePals", "MimiTags", "GrappleSeries", "FlexiPals", "TagBuddy", 
+  "TrolleyPops", "Door Tags", "Mini Shakers", "Organisers & Events", 
+  "Stands & Displays", "Seasonal & Gifts", "Accessories & Others"
+];
+
+const COMMON_EXPENSE_ITEMS = [
+  "PLA Filament", "PETG Filament", "51 Hook Chains", "Clicker Mechanism", "NFC Tags",
+  "Laser Packaging Bags", "Cardboard Boxes", "Silk Gift Bags", "Keyrings / Chains",
+  "DIT Heat Transfer", "Postage / Delivery", "Print Bed Sheet", "Clicker Removal Tool"
+];
+
+// PRE-POPULATED 61 CATALOG PRODUCTS FROM EXCEL
+const EXCEL_PRODUCTS = [{"id": "p1", "sku": "MTST", "name": "MimiTag - Single Tone Customised Name tags", "category": "MimiTags", "cost": 1.3, "priceToy": 5.9, "priceShopee": 5.9, "priceDirect": 5.3, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p2", "sku": "MTDT", "name": "MimiTag - Dual Tone Customised Name tags", "category": "MimiTags", "cost": 1.74, "priceToy": 7.9, "priceShopee": 7.9, "priceDirect": 7.1, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p3", "sku": "MTMC", "name": "MimiTag - Multi-Colour Customised Name tags Premium", "category": "MimiTags", "cost": 3.28, "priceToy": 14.9, "priceShopee": 14.9, "priceDirect": 13.4, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p4", "sku": "MTBS", "name": "MimiTag - BeSpoke Customised Name tags", "category": "MimiTags", "cost": 5.48, "priceToy": 24.9, "priceShopee": 24.9, "priceDirect": 22.4, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p5", "sku": "GPS", "name": "GrapplePets - Standard (Standard animals & GI. Custom Belt colour)", "category": "GrappleSeries", "cost": 3.28, "priceToy": 14.9, "priceShopee": 14.9, "priceDirect": 13.4, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p6", "sku": "GPC", "name": "GrapplePets - Customized (Customize Name and Belt Colour, Standard animals & Gi colour)", "category": "GrappleSeries", "cost": 3.72, "priceToy": 16.9, "priceShopee": 16.9, "priceDirect": 15.2, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p7", "sku": "GPP", "name": "GrapplePets - Premium (Choose own animal, name, GI/ Belt colour)", "category": "GrappleSeries", "cost": 5.48, "priceToy": 24.9, "priceShopee": 24.9, "priceDirect": 22.4, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p8", "sku": "GGS", "name": "GrappleGear - Standard BJJ Gi (Customize Name and Belt Colour. Standard GI)", "category": "GrappleSeries", "cost": 3.28, "priceToy": 14.9, "priceShopee": 14.9, "priceDirect": 13.4, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p9", "sku": "GGC", "name": "GrappleGear - Customised BJJ Gi (Customize Name, Belt Colour and GI)", "category": "GrappleSeries", "cost": 3.72, "priceToy": 16.9, "priceShopee": 16.9, "priceDirect": 15.2, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p10", "sku": "CPSS", "name": "ClickiePals Sippy Sips", "category": "ClickiePals", "cost": 1.74, "priceToy": 7.9, "priceShopee": 7.9, "priceDirect": 7.1, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p11", "sku": "CPBD", "name": "ClickiePals Sippy Sips - Bundle of 3", "category": "ClickiePals", "cost": 4.4, "priceToy": 20.0, "priceShopee": 20.0, "priceDirect": 18.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p12", "sku": "CDG01", "name": "Children's Day Gift Set 1", "category": "Accessories & Others", "cost": 2.18, "priceToy": 9.9, "priceShopee": 9.9, "priceDirect": 8.9, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p13", "sku": "FP001", "name": "FlexiPals - Ocean", "category": "FlexiPals", "cost": 0.86, "priceToy": 3.9, "priceShopee": 3.9, "priceDirect": 3.5, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p14", "sku": "FP002", "name": "FlexiPals - Dino", "category": "FlexiPals", "cost": 0.86, "priceToy": 3.9, "priceShopee": 3.9, "priceDirect": 3.5, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p15", "sku": "FP003", "name": "FlexiPals - halloween", "category": "FlexiPals", "cost": 0.86, "priceToy": 3.9, "priceShopee": 3.9, "priceDirect": 3.5, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p16", "sku": "FPBUN", "name": "FlexiPals - Ocean - Bundle of 3", "category": "FlexiPals", "cost": 2.4, "priceToy": 10.9, "priceShopee": 10.9, "priceDirect": 9.8, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p17", "sku": "TBA", "name": "Tagbuddy - Atypical", "category": "TagBuddy", "cost": 2.18, "priceToy": 9.9, "priceShopee": 9.9, "priceDirect": 8.9, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p18", "sku": "TBK", "name": "Tagbuddy - Kids", "category": "TagBuddy", "cost": 2.84, "priceToy": 12.9, "priceShopee": 12.9, "priceDirect": 11.6, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p19", "sku": "TBC", "name": "Tagbuddy - Care+", "category": "TagBuddy", "cost": 2.84, "priceToy": 12.9, "priceShopee": 12.9, "priceDirect": 11.6, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p20", "sku": "TBB", "name": "Tagbuddy - Business", "category": "TagBuddy", "cost": 2.84, "priceToy": 12.9, "priceShopee": 12.9, "priceDirect": 11.6, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p21", "sku": "TBBD", "name": "Tagbuddy - Bundle of 3", "category": "TagBuddy", "cost": 6.6, "priceToy": 30.0, "priceShopee": 30.0, "priceDirect": 27.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p22", "sku": "TBBS", "name": "Tagbuddy - BeSpoke", "category": "TagBuddy", "cost": 5.04, "priceToy": 22.9, "priceShopee": 22.9, "priceDirect": 20.6, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p23", "sku": "TPC", "name": "TrolleyPop -  Circle", "category": "TrolleyPops", "cost": 0.99, "priceToy": 4.5, "priceShopee": 4.5, "priceDirect": 4.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p24", "sku": "TPH", "name": "TrolleyPop -  Heart", "category": "TrolleyPops", "cost": 0.99, "priceToy": 4.5, "priceShopee": 4.5, "priceDirect": 4.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p25", "sku": "TPB", "name": "TrolleyPop -  BEspoke", "category": "TrolleyPops", "cost": 1.32, "priceToy": 6.0, "priceShopee": 6.0, "priceDirect": 5.4, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p26", "sku": "BLB", "name": "Blind Bag gachapon", "category": "Accessories & Others", "cost": 0.5, "priceToy": 2.0, "priceShopee": 2.0, "priceDirect": 1.8, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p27", "sku": "BKP", "name": "Book Pals", "category": "Accessories & Others", "cost": 0.5, "priceToy": 2.0, "priceShopee": 2.0, "priceDirect": 1.8, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p28", "sku": "SBH", "name": "Surprise Box Halloween", "category": "Seasonal & Gifts", "cost": 3.3, "priceToy": 15.0, "priceShopee": 15.0, "priceDirect": 13.5, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p29", "sku": "SBX", "name": "Surprise Box Xmas", "category": "Seasonal & Gifts", "cost": 4.4, "priceToy": 20.0, "priceShopee": 20.0, "priceDirect": 18.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p30", "sku": "BXT60", "name": "Bespoke xmas Ornament Tag 60mm", "category": "Seasonal & Gifts", "cost": 2.18, "priceToy": 9.9, "priceShopee": 9.9, "priceDirect": 8.9, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p31", "sku": "BXT80", "name": "Bespoke xmas Ornament Tag 80mm", "category": "Seasonal & Gifts", "cost": 2.84, "priceToy": 12.9, "priceShopee": 12.9, "priceDirect": 11.6, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p32", "sku": "DT01", "name": "Door tag 01 single", "category": "Door Tags", "cost": 2.84, "priceToy": 12.9, "priceShopee": 12.9, "priceDirect": 11.6, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p33", "sku": "DT02", "name": "Door tag 01 bespoke", "category": "Door Tags", "cost": 3.5, "priceToy": 15.9, "priceShopee": 15.9, "priceDirect": 14.3, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p34", "sku": "MS01", "name": "Mini shaker", "category": "Mini Shakers", "cost": 1.52, "priceToy": 6.9, "priceShopee": 6.9, "priceDirect": 6.2, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p35", "sku": "Ms02", "name": "Mini shaker bespoke", "category": "Mini Shakers", "cost": 2.18, "priceToy": 9.9, "priceShopee": 9.9, "priceDirect": 8.9, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p36", "sku": "SC01", "name": "SnowCoaster", "category": "Seasonal & Gifts", "cost": 6.58, "priceToy": 29.9, "priceShopee": 29.9, "priceDirect": 26.9, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p37", "sku": "CEF01", "name": "CEF Guoco Midtown Organiser", "category": "Organisers & Events", "cost": 2.2, "priceToy": 10.0, "priceShopee": 10.0, "priceDirect": 9.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p38", "sku": "PC01", "name": "Paracord Design", "category": "Accessories & Others", "cost": 1.32, "priceToy": 6.0, "priceShopee": 6.0, "priceDirect": 5.4, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p39", "sku": "PC02", "name": "Paracord Design - charms", "category": "Accessories & Others", "cost": 0.88, "priceToy": 4.0, "priceShopee": 4.0, "priceDirect": 3.6, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p40", "sku": "CEF02R", "name": "CEF Revenue", "category": "Organisers & Events", "cost": 0.5, "priceToy": 1.0, "priceShopee": 1.0, "priceDirect": 0.9, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p41", "sku": "CEF03R", "name": "Babaluppa", "category": "Organisers & Events", "cost": 0.5, "priceToy": 1.0, "priceShopee": 1.0, "priceDirect": 0.9, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p42", "sku": "CT01", "name": "Colouring Tag", "category": "Accessories & Others", "cost": 2.18, "priceToy": 9.9, "priceShopee": 9.9, "priceDirect": 8.9, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p43", "sku": "CEF02", "name": "CEF Organiser", "category": "Organisers & Events", "cost": 2.2, "priceToy": 10.0, "priceShopee": 10.0, "priceDirect": 9.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p44", "sku": "CP67", "name": "ClickiePal 67", "category": "ClickiePals", "cost": 1.74, "priceToy": 7.9, "priceShopee": 7.9, "priceDirect": 7.1, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p45", "sku": "CP67B", "name": "ClickiePals bundle", "category": "ClickiePals", "cost": 3.3, "priceToy": 15.0, "priceShopee": 15.0, "priceDirect": 13.5, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p46", "sku": "CPBE 1", "name": "ClickiePals Bespoke (alphabets & numbers) 1 character", "category": "ClickiePals", "cost": 1.32, "priceToy": 6.0, "priceShopee": 6.0, "priceDirect": 5.4, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p47", "sku": "CPBE 2", "name": "ClickiePals Bespoke (alphabets & numbers) 2 character", "category": "ClickiePals", "cost": 1.76, "priceToy": 8.0, "priceShopee": 8.0, "priceDirect": 7.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p48", "sku": "CPBE 3", "name": "ClickiePals Bespoke (alphabets & numbers) 3 character", "category": "ClickiePals", "cost": 2.2, "priceToy": 10.0, "priceShopee": 10.0, "priceDirect": 8.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p49", "sku": "CPBE 4", "name": "ClickiePals Bespoke (alphabets & numbers) 4 character", "category": "ClickiePals", "cost": 2.64, "priceToy": 12.0, "priceShopee": 12.0, "priceDirect": 9.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p50", "sku": "CPBE 5", "name": "ClickiePals Bespoke (alphabets & numbers) 5 character", "category": "ClickiePals", "cost": 3.08, "priceToy": 14.0, "priceShopee": 14.0, "priceDirect": 10.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p51", "sku": "CPBE 6", "name": "ClickiePals Bespoke (alphabets & numbers) 6 character", "category": "ClickiePals", "cost": 3.52, "priceToy": 16.0, "priceShopee": 16.0, "priceDirect": 11.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p52", "sku": "CPBE 7", "name": "ClickiePals Bespoke (alphabets & numbers) 7 character", "category": "ClickiePals", "cost": 3.96, "priceToy": 18.0, "priceShopee": 18.0, "priceDirect": 12.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p53", "sku": "BNS", "name": "Bespoke Name Stand 2 tone", "category": "Stands & Displays", "cost": 8.36, "priceToy": 38.0, "priceShopee": 38.0, "priceDirect": 28.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p54", "sku": "CPMO", "name": "ClickiePals Mochi", "category": "ClickiePals", "cost": 2.2, "priceToy": 10.0, "priceShopee": 10.0, "priceDirect": 9.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p55", "sku": "CPTL", "name": "Clickiepals Traffic light.", "category": "ClickiePals", "cost": 2.2, "priceToy": 10.0, "priceShopee": 10.0, "priceDirect": 9.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p56", "sku": "PPC1", "name": "Pocket Pal Coin", "category": "Accessories & Others", "cost": 3.72, "priceToy": 16.9, "priceShopee": 16.9, "priceDirect": 12.9, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p57", "sku": "PPN1", "name": "Pocket Pal notes", "category": "Accessories & Others", "cost": 3.72, "priceToy": 16.9, "priceShopee": 16.9, "priceDirect": 12.9, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p58", "sku": "CPF1", "name": "Clickiepal Flower", "category": "ClickiePals", "cost": 1.74, "priceToy": 7.9, "priceShopee": 7.9, "priceDirect": 7.1, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p59", "sku": "PSV2", "name": "Payment Stand Vertical 2 tiles", "category": "Stands & Displays", "cost": 15.18, "priceToy": 69.0, "priceShopee": 69.0, "priceDirect": 59.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p60", "sku": "PSV3", "name": "Payment Stand Vertical 3 tiles", "category": "Stands & Displays", "cost": 17.38, "priceToy": 79.0, "priceShopee": 79.0, "priceDirect": 69.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}, {"id": "p61", "sku": "PSV4", "name": "Payment Stand Vertical 4 tiles", "category": "Stands & Displays", "cost": 19.58, "priceToy": 89.0, "priceShopee": 89.0, "priceDirect": 79.0, "stockHome": 5, "stockLocker": 2, "lowThreshold": 3}];
+
+// 95 PRE-LOADED HISTORICAL ORDERS (2025 & 2026)
+const EXCEL_HISTORICAL_ORDERS = [{"id": "ord_1", "orderNo": "KCO001", "date": "2025-08-15", "customer": "Clara GB", "channel": "Direct / Group Buy", "productId": "MTDT", "details": "MimiTag - Dual Tone Customised Name tags", "qty": 33.0, "unitPrice": 5.015, "totalPrice": 165.495, "nettReceived": 148.9455, "payment": "Paid", "status": "Delivered"}, {"id": "ord_2", "orderNo": "KCO002", "date": "2025-08-15", "customer": "Clara GB", "channel": "Direct / Group Buy", "productId": "MTMC", "details": "MimiTag - Multi-Colour Customised Name tags Premium", "qty": 20.0, "unitPrice": 8.415, "totalPrice": 168.3, "nettReceived": 151.47, "payment": "Paid", "status": "Delivered"}, {"id": "ord_3", "orderNo": "KCO003", "date": "2025-09-15", "customer": "Lao 3", "channel": "Direct / Group Buy", "productId": "GPC", "details": "GrapplePets - Customized (Customize Name and Belt Colour, Standard animals & Gi colour)", "qty": 6.0, "unitPrice": 9.9, "totalPrice": 59.4, "nettReceived": 59.4, "payment": "Paid", "status": "Delivered"}, {"id": "ord_4", "orderNo": "KCO004", "date": "2025-09-15", "customer": "Bel", "channel": "Direct / Group Buy", "productId": "MTMC", "details": "MimiTag - Multi-Colour Customised Name tags Premium", "qty": 1.0, "unitPrice": 9.9, "totalPrice": 9.9, "nettReceived": 9.9, "payment": "Paid", "status": "Delivered"}, {"id": "ord_5", "orderNo": "KCO005", "date": "2025-09-15", "customer": "Bernard", "channel": "Direct / Group Buy", "productId": "MTDT", "details": "MimiTag - Dual Tone Customised Name tags", "qty": 3.0, "unitPrice": 0.0, "totalPrice": 0.0, "nettReceived": 0.0, "payment": "Gift", "status": "Delivered"}, {"id": "ord_6", "orderNo": "KCO006", "date": "2025-09-15", "customer": "Jamie", "channel": "Direct / Group Buy", "productId": "GPP", "details": "GrapplePets - Premium (Choose own animal, name, GI/ Belt colour)", "qty": 1.0, "unitPrice": 0.0, "totalPrice": 0.0, "nettReceived": 0.0, "payment": "Gift", "status": "Delivered"}, {"id": "ord_7", "orderNo": "KCO007", "date": "2025-09-15", "customer": "Lao 3", "channel": "Direct / Group Buy", "productId": "CDG01", "details": "Children's Day Gift Set 1", "qty": 10.0, "unitPrice": 6.9, "totalPrice": 69.0, "nettReceived": 69.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_8", "orderNo": "KCO008", "date": "2025-09-15", "customer": "Jennifer", "channel": "Direct / Group Buy", "productId": "FPBUN", "details": "FlexiPals - Ocean - Bundle of 3", "qty": 1.0, "unitPrice": 9.9, "totalPrice": 9.9, "nettReceived": 9.9, "payment": "Paid", "status": "Delivered"}, {"id": "ord_9", "orderNo": "KCO009", "date": "2025-09-15", "customer": "Joyce", "channel": "Direct / Group Buy", "productId": "GPC", "details": "GrapplePets - Customized (Customize Name and Belt Colour, Standard animals & Gi colour)", "qty": 1.0, "unitPrice": 9.9, "totalPrice": 9.9, "nettReceived": 9.9, "payment": "Paid", "status": "Delivered"}, {"id": "ord_10", "orderNo": "KCO010", "date": "2025-09-15", "customer": "Joyce", "channel": "Direct / Group Buy", "productId": "MTDT", "details": "MimiTag - Dual Tone Customised Name tags", "qty": 1.0, "unitPrice": 6.9, "totalPrice": 6.9, "nettReceived": 6.9, "payment": "Paid", "status": "Delivered"}, {"id": "ord_11", "orderNo": "KCO011", "date": "2025-09-15", "customer": "Sean", "channel": "Direct / Group Buy", "productId": "GPC", "details": "GrapplePets - Customized (Customize Name and Belt Colour, Standard animals & Gi colour)", "qty": 4.0, "unitPrice": 9.9, "totalPrice": 39.6, "nettReceived": 39.6, "payment": "Paid", "status": "Delivered"}, {"id": "ord_12", "orderNo": "KCO012", "date": "2025-09-15", "customer": "Bel", "channel": "Direct / Group Buy", "productId": "MTBS", "details": "MimiTag - BeSpoke Customised Name tags", "qty": 2.0, "unitPrice": 9.9, "totalPrice": 19.8, "nettReceived": 19.8, "payment": "Paid", "status": "Delivered"}, {"id": "ord_13", "orderNo": "KCO013", "date": "2025-09-15", "customer": "Bel", "channel": "Direct / Group Buy", "productId": "MTBS", "details": "MimiTag - BeSpoke Customised Name tags", "qty": 2.0, "unitPrice": 9.9, "totalPrice": 19.8, "nettReceived": 19.8, "payment": "Paid", "status": "Delivered"}, {"id": "ord_14", "orderNo": "KCO014", "date": "2025-09-15", "customer": "Bel", "channel": "Direct / Group Buy", "productId": "CDG01", "details": "Children's Day Gift Set 1", "qty": 5.0, "unitPrice": 6.9, "totalPrice": 34.5, "nettReceived": 34.5, "payment": "Paid", "status": "Delivered"}, {"id": "ord_15", "orderNo": "KCO015", "date": "2025-09-15", "customer": "Sean", "channel": "Direct / Group Buy", "productId": "CPSS", "details": "ClickiePals Sippy Sips", "qty": 4.0, "unitPrice": 4.0, "totalPrice": 16.0, "nettReceived": 16.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_16", "orderNo": "KCO016", "date": "2025-09-15", "customer": "Sean", "channel": "Direct / Group Buy", "productId": "FP001", "details": "FlexiPals - Ocean", "qty": 4.0, "unitPrice": 2.0, "totalPrice": 8.0, "nettReceived": 8.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_17", "orderNo": "KCO017", "date": "2025-09-15", "customer": "Angie", "channel": "Direct / Group Buy", "productId": "tph", "details": "TrolleyPop -  Heart", "qty": 10.0, "unitPrice": 3.6, "totalPrice": 36.0, "nettReceived": 36.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_18", "orderNo": "KCO018", "date": "2025-09-15", "customer": "Angie", "channel": "Direct / Group Buy", "productId": "cpss", "details": "ClickiePals Sippy Sips", "qty": 1.0, "unitPrice": 5.0, "totalPrice": 5.0, "nettReceived": 5.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_19", "orderNo": "KCO019", "date": "2025-09-15", "customer": "Sean", "channel": "Direct / Group Buy", "productId": "FP003", "details": "FlexiPals - halloween", "qty": 1.0, "unitPrice": 3.5, "totalPrice": 3.5, "nettReceived": 3.5, "payment": "Paid", "status": "Delivered"}, {"id": "ord_20", "orderNo": "KCO020", "date": "2025-10-15", "customer": "Sean", "channel": "Direct / Group Buy", "productId": "CDG01", "details": "Children's Day Gift Set 1", "qty": 2.0, "unitPrice": 6.9, "totalPrice": 13.8, "nettReceived": 13.8, "payment": "Paid", "status": "Delivered"}, {"id": "ord_21", "orderNo": "KCO021", "date": "2025-10-15", "customer": "Sean", "channel": "Direct / Group Buy", "productId": "TPC", "details": "TrolleyPop -  Circle", "qty": 1.0, "unitPrice": 3.2, "totalPrice": 3.2, "nettReceived": 3.2, "payment": "Paid", "status": "Delivered"}, {"id": "ord_22", "orderNo": "KCO022", "date": "2025-10-15", "customer": "Hollandse Club Entrepreneurship Fair", "channel": "Direct / Group Buy", "productId": "FP001", "details": "FlexiPals - Ocean", "qty": 19.0, "unitPrice": 3.5, "totalPrice": 66.5, "nettReceived": 66.5, "payment": "Paid", "status": "Delivered"}, {"id": "ord_23", "orderNo": "KCO023", "date": "2025-10-15", "customer": "Hollandse Club Entrepreneurship Fair", "channel": "Direct / Group Buy", "productId": "FPBUN", "details": "FlexiPals - Ocean - Bundle of 3", "qty": 3.0, "unitPrice": 10.0, "totalPrice": 30.0, "nettReceived": 30.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_24", "orderNo": "KCO024", "date": "2025-10-15", "customer": "Hollandse Club Entrepreneurship Fair", "channel": "Direct / Group Buy", "productId": "CPSS", "details": "ClickiePals Sippy Sips", "qty": 9.0, "unitPrice": 6.0, "totalPrice": 54.0, "nettReceived": 54.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_25", "orderNo": "KCO025", "date": "2025-10-15", "customer": "Hollandse Club Entrepreneurship Fair", "channel": "Direct / Group Buy", "productId": "CPBD", "details": "ClickiePals Sippy Sips - Bundle of 3", "qty": 2.0, "unitPrice": 15.0, "totalPrice": 30.0, "nettReceived": 30.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_26", "orderNo": "KCO026", "date": "2025-10-15", "customer": "Hollandse Club Entrepreneurship Fair", "channel": "Direct / Group Buy", "productId": "TPC", "details": "TrolleyPop -  Circle", "qty": 8.0, "unitPrice": 4.0, "totalPrice": 32.0, "nettReceived": 32.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_27", "orderNo": "KCO027", "date": "2025-10-15", "customer": "Hollandse Club Entrepreneurship Fair", "channel": "Direct / Group Buy", "productId": "BLB", "details": "Blind Bag gachapon", "qty": 13.0, "unitPrice": 2.0, "totalPrice": 26.0, "nettReceived": 26.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_28", "orderNo": "KCO028", "date": "2025-10-15", "customer": "Hollandse Club Entrepreneurship Fair", "channel": "Direct / Group Buy", "productId": "BKP", "details": "Book Pals", "qty": 11.0, "unitPrice": 2.0, "totalPrice": 22.0, "nettReceived": 22.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_29", "orderNo": "KCO029", "date": "2025-10-15", "customer": "Hollandse Club Entrepreneurship Fair", "channel": "Direct / Group Buy", "productId": "MISC", "details": "$10 Incentive for winning Best Marketing Award", "qty": 1.0, "unitPrice": 10.0, "totalPrice": 10.0, "nettReceived": 10.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_30", "orderNo": "KCO030", "date": "2025-10-15", "customer": "Bel", "channel": "Direct / Group Buy", "productId": "CDG01", "details": "Children's Day Gift Set 1", "qty": 1.0, "unitPrice": 6.9, "totalPrice": 6.9, "nettReceived": 6.9, "payment": "Paid", "status": "Delivered"}, {"id": "ord_31", "orderNo": "KCO031", "date": "2025-10-15", "customer": "Evangeline", "channel": "Direct / Group Buy", "productId": "CPSS", "details": "ClickiePals Sippy Sips", "qty": 4.0, "unitPrice": 7.1, "totalPrice": 28.4, "nettReceived": 19.4, "payment": "Paid", "status": "Delivered"}, {"id": "ord_32", "orderNo": "KCO032", "date": "2025-10-15", "customer": "bevan", "channel": "Direct / Group Buy", "productId": "FP002", "details": "FlexiPals - Dino", "qty": 1.0, "unitPrice": 3.5, "totalPrice": 3.5, "nettReceived": 3.5, "payment": "Paid", "status": "Delivered"}, {"id": "ord_33", "orderNo": "KCO033", "date": "2025-10-15", "customer": "Sophia", "channel": "Direct / Group Buy", "productId": "TPB", "details": "TrolleyPop -  BEspoke", "qty": 10.0, "unitPrice": 5.1, "totalPrice": 51.0, "nettReceived": 51.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_34", "orderNo": "KCO034", "date": "2025-10-15", "customer": "Sophia", "channel": "Direct / Group Buy", "productId": "MTDT", "details": "MimiTag - Dual Tone Customised Name tags", "qty": 5.0, "unitPrice": 5.9, "totalPrice": 29.5, "nettReceived": 29.5, "payment": "Paid", "status": "Delivered"}, {"id": "ord_35", "orderNo": "KCO035", "date": "2025-11-15", "customer": "Jessica", "channel": "Direct / Group Buy", "productId": "Ms01", "details": "Mini shaker", "qty": 10.0, "unitPrice": 5.0, "totalPrice": 50.0, "nettReceived": 50.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_36", "orderNo": "KCO036", "date": "2025-11-15", "customer": "Jessica", "channel": "Direct / Group Buy", "productId": "SC01", "details": "SnowCoaster", "qty": 1.0, "unitPrice": 15.0, "totalPrice": 15.0, "nettReceived": 15.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_37", "orderNo": "KCO037", "date": "2025-12-15", "customer": "CEF", "channel": "Direct / Group Buy", "productId": "CEF01", "details": "CEF Guoco Midtown Organiser", "qty": 25.0, "unitPrice": 10.0, "totalPrice": 250.0, "nettReceived": 250.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_38", "orderNo": "KCO038", "date": "2025-11-15", "customer": "Phyllis", "channel": "Direct / Group Buy", "productId": "CPSS", "details": "ClickiePals Sippy Sips", "qty": 26.0, "unitPrice": 6.5, "totalPrice": 169.0, "nettReceived": 169.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_39", "orderNo": "KCO039", "date": "2025-11-15", "customer": "Crane", "channel": "Direct / Group Buy", "productId": "CEF02R", "details": "CEF Revenue", "qty": 1.0, "unitPrice": 1.0, "totalPrice": 1.0, "nettReceived": 1.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_40", "orderNo": "KCO040", "date": "2025-11-15", "customer": "Joanna", "channel": "Direct / Group Buy", "productId": "CDG01", "details": "Children's Day Gift Set 1", "qty": 18.0, "unitPrice": 8.4, "totalPrice": 151.2, "nettReceived": 151.2, "payment": "Paid", "status": "Delivered"}, {"id": "ord_41", "orderNo": "KCO041", "date": "2025-11-15", "customer": "Bel", "channel": "Direct / Group Buy", "productId": "Ms02", "details": "Mini shaker bespoke", "qty": 11.0, "unitPrice": 5.0, "totalPrice": 55.0, "nettReceived": 55.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_42", "orderNo": "KCO042", "date": "2025-12-15", "customer": "Michelle", "channel": "Direct / Group Buy", "productId": "MTBS", "details": "MimiTag - BeSpoke Customised Name tags", "qty": 7.0, "unitPrice": 9.9, "totalPrice": 69.3, "nettReceived": 69.3, "payment": "Paid", "status": "Delivered"}, {"id": "ord_43", "orderNo": "KCO043", "date": "2025-12-15", "customer": "Michelle", "channel": "Direct / Group Buy", "productId": "MTDT", "details": "MimiTag - Dual Tone Customised Name tags", "qty": 2.0, "unitPrice": 5.0, "totalPrice": 10.0, "nettReceived": 10.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_44", "orderNo": "KCO044", "date": "2025-11-15", "customer": "Guoco", "channel": "Direct / Group Buy", "productId": "CEF03R", "details": "Babaluppa", "qty": 44.0, "unitPrice": 1.0, "totalPrice": 44.0, "nettReceived": 44.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_45", "orderNo": "KCO045", "date": "2025-11-15", "customer": "Guoco", "channel": "Direct / Group Buy", "productId": "CEF03R", "details": "Babaluppa", "qty": 72.0, "unitPrice": 1.0, "totalPrice": 72.0, "nettReceived": 72.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_46", "orderNo": "KCO046", "date": "2025-12-15", "customer": "Ros", "channel": "Direct / Group Buy", "productId": "MTDT", "details": "MimiTag - Dual Tone Customised Name tags", "qty": 9.0, "unitPrice": 5.0, "totalPrice": 45.0, "nettReceived": 45.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_47", "orderNo": "KCO047", "date": "2025-12-15", "customer": "Sophia", "channel": "Direct / Group Buy", "productId": "MTMC", "details": "MimiTag - Multi-Colour Customised Name tags Premium", "qty": 5.0, "unitPrice": 11.9, "totalPrice": 60.0, "nettReceived": 60.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_48", "orderNo": "KCO048", "date": "2025-12-15", "customer": "Guoco 6dec", "channel": "Direct / Group Buy", "productId": "CEF02R", "details": "CEF Revenue", "qty": 93.0, "unitPrice": 1.0, "totalPrice": 93.0, "nettReceived": 93.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_49", "orderNo": "KCO049", "date": "2025-12-15", "customer": "Guoco 7 Dec", "channel": "Direct / Group Buy", "productId": "CEF02R", "details": "CEF Revenue", "qty": 129.0, "unitPrice": 1.0, "totalPrice": 129.0, "nettReceived": 129.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_50", "orderNo": "KCO050", "date": "2026-01-15", "customer": "Eileen", "channel": "Direct / Event", "productId": "TBBS", "details": "Tagbuddy - BeSpoke", "qty": 6.0, "unitPrice": 16.0, "totalPrice": 96.0, "nettReceived": 96.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_51", "orderNo": "KCO051", "date": "2026-01-15", "customer": "Cheryl", "channel": "Direct / Event", "productId": "CT01", "details": "Colouring Tag", "qty": 21.0, "unitPrice": 6.9, "totalPrice": 145.0, "nettReceived": 145.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_52", "orderNo": "KCO052", "date": "2026-01-15", "customer": "Aindrila", "channel": "Direct / Event", "productId": "CP67b", "details": "ClickiePals bundle", "qty": 6.0, "unitPrice": 15.0, "totalPrice": 90.0, "nettReceived": 85.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_53", "orderNo": "KCO053", "date": "2026-02-15", "customer": "Stadium 21 Feb", "channel": "Direct / Event", "productId": "CEF02", "details": "CEF Organiser", "qty": 25.0, "unitPrice": 10.0, "totalPrice": 250.0, "nettReceived": 250.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_54", "orderNo": "KCO054", "date": "2026-02-15", "customer": "Stadium 22 Feb", "channel": "Direct / Event", "productId": "CEF02", "details": "CEF Organiser", "qty": 27.0, "unitPrice": 10.0, "totalPrice": 270.0, "nettReceived": 270.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_55", "orderNo": "KCO055", "date": "2026-02-15", "customer": "Evangeline", "channel": "Direct / Event", "productId": "CPSS", "details": "ClickiePals Sippy Sips", "qty": 1.0, "unitPrice": 5.5, "totalPrice": 5.5, "nettReceived": 5.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_56", "orderNo": "KCO056", "date": "2026-02-15", "customer": "Evangeline", "channel": "Direct / Event", "productId": "FP001", "details": "FlexiPals - Ocean", "qty": 1.0, "unitPrice": 3.5, "totalPrice": 3.5, "nettReceived": 3.5, "payment": "Paid", "status": "Delivered"}, {"id": "ord_57", "orderNo": "KCO057", "date": "2026-02-15", "customer": "Tracy", "channel": "Direct / Event", "productId": "CP67b", "details": "ClickiePals bundle", "qty": 1.0, "unitPrice": 15.0, "totalPrice": 15.0, "nettReceived": 15.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_58", "orderNo": "KCO058", "date": "2026-02-15", "customer": "Shoppee", "channel": "Direct / Event", "productId": "TPC", "details": "TrolleyPop -  Circle", "qty": 1.0, "unitPrice": 4.5, "totalPrice": 4.5, "nettReceived": 4.5, "payment": "Paid", "status": "Delivered"}, {"id": "ord_59", "orderNo": "KCO059", "date": "2026-02-15", "customer": "IG", "channel": "Direct / Event", "productId": "CPBE 4", "details": "ClickiePals Bespoke (alphabets & numbers) 4 character", "qty": 1.0, "unitPrice": 9.6, "totalPrice": 9.6, "nettReceived": 9.6, "payment": "Paid", "status": "Delivered"}, {"id": "ord_60", "orderNo": "KCO060", "date": "2026-02-15", "customer": "Kallang 21 feb", "channel": "Direct / Event", "productId": "CEF02R", "details": "CEF Revenue", "qty": 135.5, "unitPrice": 1.0, "totalPrice": 135.5, "nettReceived": 135.5, "payment": "Paid", "status": "Delivered"}, {"id": "ord_61", "orderNo": "KCO061", "date": "2026-02-15", "customer": "Kallang 22 feb", "channel": "Direct / Event", "productId": "CEF02R", "details": "CEF Revenue", "qty": 234.0, "unitPrice": 1.0, "totalPrice": 234.0, "nettReceived": 234.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_62", "orderNo": "KCO062", "date": "2026-02-15", "customer": "Tiny Kitchen", "channel": "Direct / Event", "productId": "CPBE 6", "details": "ClickiePals Bespoke (alphabets & numbers) 6 character", "qty": 3.0, "unitPrice": 8.8, "totalPrice": 26.4, "nettReceived": 26.4, "payment": "Paid", "status": "Delivered"}, {"id": "ord_63", "orderNo": "KCO063", "date": "2026-02-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CPBE 5", "details": "ClickiePals Bespoke (alphabets & numbers) 5 character", "qty": 1.0, "unitPrice": 8.0, "totalPrice": 8.0, "nettReceived": 8.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_64", "orderNo": "KCO064", "date": "2026-02-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CPBE 4", "details": "ClickiePals Bespoke (alphabets & numbers) 4 character", "qty": 2.0, "unitPrice": 7.2, "totalPrice": 14.4, "nettReceived": 14.4, "payment": "Paid", "status": "Delivered"}, {"id": "ord_65", "orderNo": "KCO065", "date": "2026-03-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CP67", "details": "ClickiePal 67", "qty": 1.0, "unitPrice": 7.9, "totalPrice": 7.9, "nettReceived": 7.9, "payment": "Paid", "status": "Delivered"}, {"id": "ord_66", "orderNo": "KCO066", "date": "2026-03-15", "customer": "Customer", "channel": "Direct / Event", "productId": "TPC", "details": "TrolleyPop -  Circle", "qty": 1.0, "unitPrice": 4.5, "totalPrice": 4.5, "nettReceived": 4.5, "payment": "Paid", "status": "Delivered"}, {"id": "ord_67", "orderNo": "KCO067", "date": "2026-03-15", "customer": "Customer", "channel": "Direct / Event", "productId": "TPC", "details": "TrolleyPop -  Circle", "qty": 1.0, "unitPrice": 4.5, "totalPrice": 4.5, "nettReceived": 4.5, "payment": "Paid", "status": "Delivered"}, {"id": "ord_68", "orderNo": "KCO068", "date": "2026-03-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CP67", "details": "ClickiePal 67", "qty": 1.0, "unitPrice": 7.9, "totalPrice": 7.9, "nettReceived": 7.9, "payment": "Paid", "status": "Delivered"}, {"id": "ord_69", "orderNo": "KCO069", "date": "2026-03-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CPBE 2", "details": "ClickiePals Bespoke (alphabets & numbers) 2 character", "qty": 1.0, "unitPrice": 8.0, "totalPrice": 8.0, "nettReceived": 8.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_70", "orderNo": "KCO070", "date": "2026-03-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CP67", "details": "ClickiePal 67", "qty": 1.0, "unitPrice": 6.3, "totalPrice": 6.3, "nettReceived": 6.3, "payment": "Paid", "status": "Delivered"}, {"id": "ord_71", "orderNo": "KCO071", "date": "2026-03-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CPTL", "details": "Clickiepals Traffic light.", "qty": 1.0, "unitPrice": 8.0, "totalPrice": 8.0, "nettReceived": 8.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_72", "orderNo": "KCO072", "date": "2026-03-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CPMo", "details": "ClickiePals Mochi", "qty": 1.0, "unitPrice": 8.0, "totalPrice": 8.0, "nettReceived": 8.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_73", "orderNo": "KCO073", "date": "2026-03-15", "customer": "Customer", "channel": "Direct / Event", "productId": "TPC", "details": "TrolleyPop -  Circle", "qty": 1.0, "unitPrice": 4.5, "totalPrice": 4.5, "nettReceived": 4.5, "payment": "Paid", "status": "Delivered"}, {"id": "ord_74", "orderNo": "KCO074", "date": "2026-03-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CP67", "details": "ClickiePal 67", "qty": 1.0, "unitPrice": 6.3, "totalPrice": 6.3, "nettReceived": 6.3, "payment": "Paid", "status": "Delivered"}, {"id": "ord_75", "orderNo": "KCO075", "date": "2026-04-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CP67", "details": "ClickiePal 67", "qty": 2.0, "unitPrice": 6.0, "totalPrice": 12.0, "nettReceived": 12.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_76", "orderNo": "KCO076", "date": "2026-04-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CPBE 7", "details": "ClickiePals Bespoke (alphabets & numbers) 7 character", "qty": 1.0, "unitPrice": 12.6, "totalPrice": 12.6, "nettReceived": 12.6, "payment": "Paid", "status": "Delivered"}, {"id": "ord_77", "orderNo": "KCO077", "date": "2026-04-15", "customer": "Customer", "channel": "Direct / Event", "productId": "TPC", "details": "TrolleyPop -  Circle", "qty": 1.0, "unitPrice": 4.0, "totalPrice": 4.0, "nettReceived": 4.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_78", "orderNo": "KCO078", "date": "2026-04-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CPSS", "details": "ClickiePals Sippy Sips", "qty": 1.0, "unitPrice": 6.0, "totalPrice": 6.0, "nettReceived": 6.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_79", "orderNo": "KCO079", "date": "2026-04-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CPF1", "details": "Clickiepal Flower", "qty": 1.0, "unitPrice": 6.0, "totalPrice": 6.0, "nettReceived": 6.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_80", "orderNo": "KCO080", "date": "2026-05-15", "customer": "Customer", "channel": "Direct / Event", "productId": "PPC1", "details": "Pocket Pal Coin", "qty": 2.0, "unitPrice": 12.9, "totalPrice": 25.8, "nettReceived": 25.8, "payment": "Paid", "status": "Delivered"}, {"id": "ord_81", "orderNo": "KCO081", "date": "2026-05-15", "customer": "Customer", "channel": "Direct / Event", "productId": "PSV2", "details": "Payment Stand Vertical 2 tiles", "qty": 1.0, "unitPrice": 53.1, "totalPrice": 53.1, "nettReceived": 53.1, "payment": "unpaid", "status": "Delivered"}, {"id": "ord_82", "orderNo": "KCO082", "date": "2026-05-15", "customer": "Customer", "channel": "Direct / Event", "productId": "PPC1", "details": "Pocket Pal Coin", "qty": 1.0, "unitPrice": 12.7, "totalPrice": 12.7, "nettReceived": 12.7, "payment": "Paid", "status": "Delivered"}, {"id": "ord_83", "orderNo": "KCO083", "date": "2026-05-15", "customer": "Customer", "channel": "Direct / Event", "productId": "PPC1", "details": "Pocket Pal Coin", "qty": 1.0, "unitPrice": 12.7, "totalPrice": 12.7, "nettReceived": 12.7, "payment": "Paid", "status": "Delivered"}, {"id": "ord_84", "orderNo": "KCO084", "date": "2026-05-15", "customer": "Customer", "channel": "Direct / Event", "productId": "PPC1", "details": "Pocket Pal Coin", "qty": 3.0, "unitPrice": 11.8, "totalPrice": 34.8, "nettReceived": 34.8, "payment": "Paid", "status": "Delivered"}, {"id": "ord_85", "orderNo": "KCO085", "date": "2026-05-15", "customer": "Customer", "channel": "Direct / Event", "productId": "TPH", "details": "TrolleyPop -  Heart", "qty": 1.0, "unitPrice": 4.5, "totalPrice": 4.5, "nettReceived": 4.5, "payment": "Paid", "status": "Delivered"}, {"id": "ord_86", "orderNo": "KCO086", "date": "2026-05-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CPBE 3", "details": "ClickiePals Bespoke (alphabets & numbers) 3 character", "qty": 1.0, "unitPrice": 8.0, "totalPrice": 8.0, "nettReceived": 8.0, "payment": "Paid", "status": "Delivered"}, {"id": "ord_87", "orderNo": "KCO087", "date": "2026-05-15", "customer": "Customer", "channel": "Direct / Event", "productId": "PPN1", "details": "Pocket Pal notes", "qty": 1.0, "unitPrice": 12.9, "totalPrice": 12.9, "nettReceived": 12.9, "payment": "Paid", "status": "Delivered"}, {"id": "ord_88", "orderNo": "KCO088", "date": "2026-05-15", "customer": "Customer", "channel": "Direct / Event", "productId": "PPN1", "details": "Pocket Pal notes", "qty": 1.0, "unitPrice": 12.7, "totalPrice": 12.7, "nettReceived": 12.7, "payment": "Paid", "status": "Delivered"}, {"id": "ord_89", "orderNo": "KCO089", "date": "2026-01-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CPBE 6", "details": "ClickiePals Bespoke (alphabets & numbers) 6 character", "qty": 2.0, "unitPrice": 11.2, "totalPrice": 22.4, "nettReceived": 22.4, "payment": "Paid", "status": "Delivered"}, {"id": "ord_90", "orderNo": "KCO090", "date": "2026-01-15", "customer": "Customer", "channel": "Direct / Event", "productId": "CPBE 5", "details": "ClickiePals Bespoke (alphabets & numbers) 5 character", "qty": 1.0, "unitPrice": 9.8, "totalPrice": 9.8, "nettReceived": 9.8, "payment": "Paid", "status": "Delivered"}];
+
+// 80 PRE-LOADED HISTORICAL EXPENSES (NO LOCKER RENTAL)
+const EXCEL_HISTORICAL_EXPENSES = [{"id": "exp_1", "date": "2025-08-01", "item": "51 hook chains", "vendor": "淘宝 (科美DIY饰品配件)", "curr": "RMB", "rawCost": 31.82, "costSgd": 5.73}, {"id": "exp_2", "date": "2025-08-01", "item": "Filament x3", "vendor": "Cai Lab 彩多屋", "curr": "RMB", "rawCost": 136.89, "costSgd": 24.64}, {"id": "exp_3", "date": "2025-08-01", "item": "X1/P1 平台", "vendor": "淘宝 (福到打印机)", "curr": "RMB", "rawCost": 40.01, "costSgd": 7.20}, {"id": "exp_4", "date": "2025-08-01", "item": "手机链挂绳", "vendor": "淘宝 (含秀饰品)", "curr": "RMB", "rawCost": 53.6, "costSgd": 9.65}, {"id": "exp_5", "date": "2025-08-01", "item": "金属彩色珠链", "vendor": "淘宝 (利百加辅科店)", "curr": "RMB", "rawCost": 24.63, "costSgd": 4.43}, {"id": "exp_6", "date": "2025-08-01", "item": "Filament x3", "vendor": "淘宝 (新森3D打印耗材店)", "curr": "RMB", "rawCost": 197.91, "costSgd": 35.62}, {"id": "exp_7", "date": "2025-08-01", "item": "Filament x4", "vendor": "拼多多 (星汐)", "curr": "RMB", "rawCost": 104.4, "costSgd": 18.70}, {"id": "exp_8", "date": "2025-08-01", "item": "镭射包装袋 50个装", "vendor": "拼多多 (实用好物)", "curr": "RMB", "rawCost": 5.81, "costSgd": 1.05}, {"id": "exp_9", "date": "2025-08-01", "item": "NFC 标签 30张 (213)", "vendor": "拼多多 (潮玩小物)", "curr": "RMB", "rawCost": 10.08, "costSgd": 1.81}, {"id": "exp_10", "date": "2025-08-01", "item": "NFC 标签 30张 (215)", "vendor": "拼多多 (潮玩小物)", "curr": "RMB", "rawCost": 18.75, "costSgd": 3.38}, {"id": "exp_11", "date": "2025-08-01", "item": "飞机盒封口贴", "vendor": "艺创彩印", "curr": "RMB", "rawCost": 50.0, "costSgd": 9.0}, {"id": "exp_12", "date": "2025-08-01", "item": "钥匙扣", "vendor": "小林五盒", "curr": "RMB", "rawCost": 31.0, "costSgd": 5.58}, {"id": "exp_13", "date": "2025-08-01", "item": "舞者吊坠", "vendor": "好甜饰品", "curr": "RMB", "rawCost": 7.42, "costSgd": 1.34}, {"id": "exp_14", "date": "2025-08-01", "item": "Filament x4", "vendor": "普菲打印", "curr": "RMB", "rawCost": 104.4, "costSgd": 18.79}, {"id": "exp_15", "date": "2025-08-01", "item": "镭射包装袋", "vendor": "绵勇包装", "curr": "RMB", "rawCost": 28.0, "costSgd": 5.04}, {"id": "exp_16", "date": "2025-08-01", "item": "NFC", "vendor": "力维客", "curr": "RMB", "rawCost": 52.97, "costSgd": 9.53}, {"id": "exp_17", "date": "2025-08-01", "item": "postage包装袋", "vendor": "园翌捷诚专卖店", "curr": "SGD", "rawCost": 2.95, "costSgd": 2.95}, {"id": "exp_18", "date": "2025-08-01", "item": "镭射包装袋", "vendor": "口袋浪漫旗舰店", "curr": "SGD", "rawCost": 3.96, "costSgd": 3.96}, {"id": "exp_19", "date": "2025-08-01", "item": "彩色门口", "vendor": "科美diy饰品配件", "curr": "SGD", "rawCost": 12.72, "costSgd": 12.72}, {"id": "exp_20", "date": "2025-08-01", "item": "手机链挂绳", "vendor": "含秀饰品配件", "curr": "SGD", "rawCost": 60.54, "costSgd": 60.54}, {"id": "exp_21", "date": "2025-08-01", "item": "Findings/ Beads", "vendor": "Beads & Craft", "curr": "SGD", "rawCost": 12.2, "costSgd": 12.2}, {"id": "exp_22", "date": "2025-08-01", "item": "Nylon/Beads/Hook Rings", "vendor": "Golden Dragon", "curr": "SGD", "rawCost": 13.9, "costSgd": 13.9}, {"id": "exp_23", "date": "2025-08-01", "item": "Blank Paper Bags", "vendor": "Art Friend", "curr": "SGD", "rawCost": 1.7, "costSgd": 1.7}, {"id": "exp_24", "date": "2025-08-01", "item": "Filament", "vendor": "Mason Studio", "curr": "SGD", "rawCost": 118.66, "costSgd": 118.66}, {"id": "exp_25", "date": "2025-08-01", "item": "Clicker", "vendor": "en ha xeji", "curr": "RMB", "rawCost": 32.58, "costSgd": 5.88}, {"id": "exp_26", "date": "2025-08-01", "item": "magnet glue", "vendor": "xiao ling", "curr": "RMB", "rawCost": 24.0, "costSgd": 4.33}, {"id": "exp_27", "date": "2025-08-01", "item": "Magnet", "vendor": "jiang nan", "curr": "RMB", "rawCost": 18.2, "costSgd": 3.28}, {"id": "exp_28", "date": "2025-08-01", "item": "Filament", "vendor": "Build It Full - 3D Printing Store", "curr": "SGD", "rawCost": 33.46, "costSgd": 33.46}, {"id": "exp_66", "date": "2026-01-01", "item": "Postage", "vendor": "Singpost", "curr": "SGD", "rawCost": 2.5, "costSgd": 2.5}, {"id": "exp_67", "date": "2026-01-01", "item": "silk bag", "vendor": "拼多多", "curr": "RMB", "rawCost": 44.0, "costSgd": 8.15}, {"id": "exp_68", "date": "2026-01-01", "item": "clicker removal", "vendor": "拼多多", "curr": "RMB", "rawCost": 1.67, "costSgd": 0.31}, {"id": "exp_69", "date": "2026-01-01", "item": "clicker", "vendor": "拼多多", "curr": "RMB", "rawCost": 37.0, "costSgd": 6.85}, {"id": "exp_70", "date": "2026-01-01", "item": "gift bag", "vendor": "拼多多", "curr": "RMB", "rawCost": 47.22, "costSgd": 8.74}, {"id": "exp_71", "date": "2026-01-01", "item": "DIT heat transfer", "vendor": "拼多多", "curr": "RMB", "rawCost": 42.3, "costSgd": 7.83}, {"id": "exp_72", "date": "2026-02-01", "item": "PLA Filament", "vendor": "淘宝", "curr": "RMB", "rawCost": 248.68, "costSgd": 46.05}, {"id": "exp_73", "date": "2026-02-01", "item": "carboard box", "vendor": "拼多多", "curr": "RMB", "rawCost": 51.2, "costSgd": 9.48}, {"id": "exp_74", "date": "2026-02-01", "item": "NFC", "vendor": "拼多多", "curr": "RMB", "rawCost": 66.5, "costSgd": 12.31}, {"id": "exp_75", "date": "2026-02-01", "item": "Lighter", "vendor": "Shopee", "curr": "SGD", "rawCost": 19.99, "costSgd": 19.99}, {"id": "exp_76", "date": "2026-02-01", "item": "Filament", "vendor": "ALT tab", "curr": "SGD", "rawCost": 63.35, "costSgd": 63.35}, {"id": "exp_77", "date": "2026-02-01", "item": "printer ink", "vendor": "Shopee", "curr": "SGD", "rawCost": 54.0, "costSgd": 54.0}, {"id": "exp_78", "date": "2026-02-01", "item": "lamination paper", "vendor": "Others", "curr": "SGD", "rawCost": 19.0, "costSgd": 19.0}, {"id": "exp_79", "date": "2026-02-01", "item": "CEF Prize", "vendor": "Event", "curr": "SGD", "rawCost": 60.0, "costSgd": 60.0}, {"id": "exp_80", "date": "2026-02-01", "item": "CEF Prize", "vendor": "Event", "curr": "SGD", "rawCost": 60.0, "costSgd": 60.0}];
+
+let state = {
+  activeTab: 'summary',
+  products: EXCEL_PRODUCTS,
+  movements: [],
+  orders: EXCEL_HISTORICAL_ORDERS,
+  expenses: EXCEL_HISTORICAL_EXPENSES,
+  filaments: [
+    { id: 'f1', vendor: '淘宝 (Cai Lab)', brand: 'Bambu Lab PLA', color: 'White', costRmb: 45.6, costSgd: 8.44, weightGrams: 850 },
+    { id: 'f2', vendor: '拼多多 (星汐)', brand: 'eSun PLA+', color: 'Pastel Pink', costRmb: 52.0, costSgd: 9.62, weightGrams: 600 }
+  ],
+  locker: { rent: 140, feePct: 16 },
+  startingBankBalance: 1578.34,
+  cnyRate: 0.185,
+  sgElectricityRate: 0.3258,
+  pnlYear: 'All',
+  pnlMonth: 'All',
+  orderYear: 'All',
+  orderMonth: 'All',
+  expYear: 'All',
+  expMonth: 'All',
+  searchQuery: '',
+  selectedCategory: 'All',
+  queueCategory: 'All'
+};
+
+function loadState(){
+  try{
+    const loaded = localStorage.getItem(STORE_KEY);
+    if(loaded){
+      const parsed = JSON.parse(loaded);
+      state = Object.assign(state, parsed);
+      if(!state.products || state.products.length === 0){ state.products = EXCEL_PRODUCTS; }
+      if(!state.orders || state.orders.length === 0){ state.orders = EXCEL_HISTORICAL_ORDERS; }
+      if(!state.expenses || state.expenses.length === 0){ state.expenses = EXCEL_HISTORICAL_EXPENSES; }
+      state.products.forEach(p=>{
+        if(!p.category) p.category = 'Accessories & Others';
+        if(p.stockHome === undefined) p.stockHome = 5;
+        if(p.stockLocker === undefined) p.stockLocker = p.stock || 2;
+      });
+    }
+  }catch(e){}
+  render();
+}
+
+function saveState(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
+}
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function fmt(n){ return (Math.round(n*100)/100).toFixed(2); }
+function esc(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function setTab(t){ state.activeTab = t; render(); }
+
+// ---------- PRODUCT & CATEGORY MANAGEMENT ----------
+function addProduct(){
+  const sku = document.getElementById('np-sku').value.trim();
+  const name = document.getElementById('np-name').value.trim();
+  const category = document.getElementById('np-cat').value;
+  const cost = parseFloat(document.getElementById('np-cost').value) || 0;
+  const priceToy = parseFloat(document.getElementById('np-priceToy').value) || 0;
+  const priceShopee = parseFloat(document.getElementById('np-priceShopee').value) || priceToy;
+  const priceDirect = parseFloat(document.getElementById('np-priceDirect').value) || priceToy;
+  const stockHome = parseInt(document.getElementById('np-stockHome').value) || 0;
+  const stockLocker = parseInt(document.getElementById('np-stockLocker').value) || 0;
+  const lowThreshold = parseInt(document.getElementById('np-low').value) || 3;
+
+  if(!name){ alert('Please enter a product name!'); return; }
+
+  state.products.unshift({
+    id: uid(), sku: sku || ('NEW' + Math.floor(10 + Math.random()*89)),
+    name, category, cost, priceToy, priceShopee, priceDirect, stockHome, stockLocker, lowThreshold
+  });
+  saveState(); render();
+}
+
+function updateProductField(id, field, value){
+  const p = state.products.find(p=>p.id===id);
+  if(!p) return;
+  if(field==='name' || field==='sku' || field==='category') p[field] = value;
+  else p[field] = parseFloat(value) || 0;
+  saveState();
+}
+
+function deleteProduct(id){
+  if(!confirm('Delete product from catalog?')) return;
+  state.products = state.products.filter(p=>p.id!==id);
+  saveState(); render();
+}
+
+function logCompletedBatch(productId){
+  const p = state.products.find(p=>p.id===productId);
+  const inputEl = document.getElementById(`pq-printqty-${productId}`);
+  const qtyPrinted = parseInt(inputEl?.value) || 0;
+  if(!p || qtyPrinted<=0) return;
+
+  p.stockHome += qtyPrinted;
+  saveState(); render();
+}
+
+function quickTransferToLocker(productId, qty){
+  const p = state.products.find(p=>p.id===productId);
+  if(!p || qty<=0) return;
+  if(p.stockHome < qty && !confirm(`Home Stock has ${p.stockHome}. Transfer ${qty} to locker anyway?`)){
+    return;
+  }
+  p.stockHome = Math.max(0, p.stockHome - qty);
+  p.stockLocker += qty;
+
+  state.movements.unshift({
+    id: uid(), date: new Date().toISOString().slice(0,10),
+    type: 'restock', productId: p.id, qty, unitPrice: p.priceToy, note: 'Quick transfer from Print Queue'
+  });
+
+  saveState(); render();
+}
+
+// ---------- LOCKER MOVEMENTS & TRANSFERS ----------
+function logMovement(){
+  const productId = document.getElementById('mv-product').value;
+  const type = document.getElementById('mv-type').value;
+  const qty = parseInt(document.getElementById('mv-qty').value) || 0;
+  const date = document.getElementById('mv-date').value || new Date().toISOString().slice(0,10);
+  const note = document.getElementById('mv-note').value.trim();
+  const p = state.products.find(p=>p.id===productId);
+  if(!p || qty<=0) return;
+
+  if(type==='restock'){
+    if(p.stockHome < qty && !confirm(`You only have ${p.stockHome} in Home Stock. Restock locker by ${qty} anyway?`)){
+      return;
+    }
+    p.stockHome = Math.max(0, p.stockHome - qty);
+    p.stockLocker += qty;
+  } else if(type==='sale' || type==='adjustment'){
+    p.stockLocker = Math.max(0, p.stockLocker - qty);
+  }
+
+  state.movements.unshift({ id: uid(), date, type, productId, qty, unitPrice: p.priceToy, note });
+  saveState(); render();
+}
+
+// ---------- EXPENSES & FILAMENTS ----------
+function autoConvertExpenseCost(){
+  const curr = document.getElementById('exp-curr').value;
+  const rawCost = parseFloat(document.getElementById('exp-rawcost').value) || 0;
+  let sgd = rawCost;
+  if(curr === 'RMB'){ sgd = rawCost * state.cnyRate; }
+  document.getElementById('exp-costSgd').value = fmt(sgd);
+}
+
+function syncPresetExpense(){
+  const preset = document.getElementById('exp-preset').value;
+  if(preset && preset !== 'custom'){ document.getElementById('exp-item').value = preset; }
+}
+
+function addExpense(){
+  const date = document.getElementById('exp-date').value || new Date().toISOString().slice(0,10);
+  const item = document.getElementById('exp-item').value.trim();
+  const vendor = document.getElementById('exp-vendor').value;
+  const curr = document.getElementById('exp-curr').value;
+  const rawCost = parseFloat(document.getElementById('exp-rawcost').value) || 0;
+  const costSgd = parseFloat(document.getElementById('exp-costSgd').value) || 0;
+  if(!item || costSgd <= 0) return;
+
+  state.expenses.unshift({ id: uid(), date, item, vendor, curr, rawCost, costSgd });
+  saveState(); render();
+}
+
+function addFilament(){
+  const vendor = document.getElementById('fil-vendor').value;
+  const brand = document.getElementById('fil-brand').value.trim();
+  const color = document.getElementById('fil-color').value.trim();
+  const costRmb = parseFloat(document.getElementById('fil-rmb').value) || 0;
+  const costSgd = costRmb > 0 ? (costRmb * state.cnyRate) : (parseFloat(document.getElementById('fil-sgd').value) || 0);
+  const weightGrams = parseInt(document.getElementById('fil-weight').value) || 1000;
+  if(!brand) return;
+
+  state.filaments.unshift({ id: uid(), vendor, brand, color, costRmb, costSgd, weightGrams });
+  saveState(); render();
+}
+
+function updateFilamentWeight(id, val){
+  const f = state.filaments.find(f=>f.id===id);
+  if(f){ f.weightGrams = Math.max(0, parseInt(val)||0); saveState(); render(); }
+}
+
+function deleteFilament(id){
+  state.filaments = state.filaments.filter(f=>f.id!==id);
+  saveState(); render();
+}
+
+// ---------- ORDERS ----------
+function autoFillOrderPrice(){
+  const pid = document.getElementById('ord-product').value;
+  const channel = document.getElementById('ord-channel').value;
+  const p = state.products.find(p=>p.id===pid);
+  if(!p) return;
+  let price = p.priceDirect;
+  if(channel==='Shopee') price = p.priceShopee;
+  if(channel==='Toy Outpost') price = p.priceToy;
+  document.getElementById('ord-price').value = price;
+}
+
+function addOrder(){
+  const date = document.getElementById('ord-date').value || new Date().toISOString().slice(0,10);
+  const customer = document.getElementById('ord-customer').value.trim();
+  const channel = document.getElementById('ord-channel').value;
+  const productId = document.getElementById('ord-product').value;
+  const qty = parseInt(document.getElementById('ord-qty').value) || 1;
+  const details = document.getElementById('ord-details').value.trim();
+  const priceInput = parseFloat(document.getElementById('ord-price').value);
+  const payment = document.getElementById('ord-pay').value;
+  const status = document.getElementById('ord-status').value;
+
+  const p = state.products.find(p=>p.id===productId);
+  let defaultPrice = p ? p.priceDirect : 0;
+  if(channel==='Shopee' && p) defaultPrice = p.priceShopee;
+  if(channel==='Toy Outpost' && p) defaultPrice = p.priceToy;
+
+  const unitPrice = isNaN(priceInput) ? defaultPrice : priceInput;
+  const totalPrice = unitPrice * qty;
+
+  if(p && channel !== 'Toy Outpost'){
+    p.stockHome = Math.max(0, p.stockHome - qty);
+  }
+
+  state.orders.unshift({
+    id: uid(), orderNo: 'KCO' + Math.floor(100 + Math.random()*900),
+    date, customer: customer || channel, channel, productId, qty, details, unitPrice, totalPrice, nettReceived: totalPrice, payment, status
+  });
+  saveState(); render();
+}
+
+function calculatePrintCost(){
+  const grams = parseFloat(document.getElementById('calc-grams').value) || 0;
+  const filCostPerKg = parseFloat(document.getElementById('calc-filcost').value) || 21.45;
+  const hours = parseFloat(document.getElementById('calc-hours').value) || 0;
+  const watts = parseFloat(document.getElementById('calc-watts').value) || 150;
+  const accCost = parseFloat(document.getElementById('calc-acc').value) || 0.55;
+  const packCost = parseFloat(document.getElementById('calc-pack').value) || 0.40;
+  const markupPct = parseFloat(document.getElementById('calc-markup').value) || 150;
+
+  const matCost = (grams / 1000) * filCostPerKg;
+  const kWh = (watts / 1000) * hours;
+  const powerCost = kWh * state.sgElectricityRate;
+
+  const totalCost = matCost + powerCost + accCost + packCost;
+  const suggestedPrice = totalCost * (1 + markupPct / 100);
+  const profit = suggestedPrice - totalCost;
+
+  document.getElementById('calc-res-mat').innerText = '$' + fmt(matCost);
+  document.getElementById('calc-res-power').innerText = '$' + fmt(powerCost);
+  document.getElementById('calc-res-total').innerText = '$' + fmt(totalCost);
+  document.getElementById('calc-res-price').innerText = '$' + fmt(suggestedPrice);
+  document.getElementById('calc-res-profit').innerText = '$' + fmt(profit);
+}
+
+function syncCalculatorFilament(){
+  const fid = document.getElementById('calc-fil-select').value;
+  const f = state.filaments.find(f=>f.id===fid);
+  if(f && f.costSgd > 0){
+    document.getElementById('calc-filcost').value = fmt(f.costSgd);
+    calculatePrintCost();
+  }
+}
+
+function updateLocker(field, val){ state.locker[field] = parseFloat(val) || 0; saveState(); }
+
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    ${renderHeader()}
+    ${renderTabs()}
+    ${state.activeTab==='summary' ? renderSummary() : ''}
+    ${state.activeTab==='printqueue' ? renderPrintQueue() : ''}
+    ${state.activeTab==='inventory' ? renderInventory() : ''}
+    ${state.activeTab==='orders' ? renderOrders() : ''}
+    ${state.activeTab==='log' ? renderLog() : ''}
+    ${state.activeTab==='expenses' ? renderExpenses() : ''}
+    ${state.activeTab==='filament' ? renderFilament() : ''}
+    ${state.activeTab==='calculator' ? renderCalculator() : ''}
+  `;
+}
+
+function renderHeader(){
+  return `
+  <div class="header">
+    <div class="eyebrow">Twirl by KCO — Production Hub</div>
+    <h1>Twirlbykco Master hub</h1>
+    <div class="sub">Filtered P&amp;L (Aug 2025 Onward) | 95 Pre-Loaded Orders &amp; 80 Operating Expenses | Excludes Historical Rent</div>
+    <div class="badges">
+      <div class="badge">🔑 Locker Rent (From This Mo): $<input type="number" value="${state.locker.rent}" onchange="updateLocker('rent', this.value)"> /mo</div>
+      <div class="badge">💸 Toy Outpost Fee: <input type="number" value="${state.locker.feePct}" onchange="updateLocker('feePct', this.value)"> %</div>
+      <div class="badge">💱 1 RMB = $<input type="number" step="0.001" value="${state.cnyRate}" onchange="state.cnyRate=parseFloat(this.value)||0.185; saveState(); render();"> SGD</div>
+      <div class="badge">⚡ SG Elec: $<input type="number" step="0.0001" value="${state.sgElectricityRate}" onchange="state.sgElectricityRate=parseFloat(this.value)||0.3258; saveState();"> /kWh</div>
+    </div>
+  </div>`;
+}
+
+function renderTabs(){
+  const needPrint = state.products.filter(p=>p.stockLocker < p.lowThreshold && p.stockHome < p.lowThreshold).length;
+  const needRestock = state.products.filter(p=>p.stockLocker < p.lowThreshold && p.stockHome >= p.lowThreshold).length;
+
+  const tabs = [
+    ['summary', '📊 P&L'],
+    ['printqueue', `🛈 Print & Restock Queue (${needPrint + needRestock})`],
+    ['inventory', `📦 Catalog & Inventory (${state.products.length})`],
+    ['orders', `🛒 Orders (${state.orders.length})`],
+    ['log', '📝 Locker Activity'],
+    ['expenses', `💸 Expenses (${state.expenses.length})`],
+    ['filament', '🧵 Filament Stock'],
+    ['calculator', '⚡ SG Print Calculator']
+  ];
+  return `<div class="tabs">${tabs.map(([id,label])=>
+    `<button class="tab ${state.activeTab===id?'active':''}" onclick="setTab('${id}')">${label}</button>`
+  ).join('')}</div>`;
+}
+
+function renderSummary(){
+  const year = state.pnlYear;
+  const month = state.pnlMonth;
+
+  // Filter Orders
+  const filteredOrders = state.orders.filter(o=>{
+    if(o.payment==='Gift') return false;
+    const y = o.date.slice(0,4);
+    const m = o.date.slice(5,7);
+    const matchYear = (year === 'All' || y === year);
+    const matchMonth = (month === 'All' || m === month);
+    return matchYear && matchMonth;
+  });
+
+  // Filter Expenses (Excludes Locker Rental completely)
+  const filteredExpenses = state.expenses.filter(e=>{
+    const y = e.date.slice(0,4);
+    const m = e.date.slice(5,7);
+    const matchYear = (year === 'All' || y === year);
+    const matchMonth = (month === 'All' || m === month);
+    return matchYear && matchMonth;
+  });
+
+  // Calculate Locker Sales vs Direct Sales
+  const lockerSales = state.movements.filter(m=>{
+    if(m.type !== 'sale') return false;
+    const y = m.date.slice(0,4);
+    const mth = m.date.slice(5,7);
+    return (year === 'All' || y === year) && (month === 'All' || mth === month);
+  });
+
+  const grossLocker = lockerSales.reduce((s,m)=>s + m.qty*m.unitPrice, 0);
+  const lockerFee = grossLocker * (state.locker.feePct/100);
+  const netLocker = grossLocker - lockerFee;
+
+  const grossOrders = filteredOrders.reduce((s,o)=>s + (o.totalPrice || o.qty * o.unitPrice), 0);
+  const totalGrossRevenue = grossLocker + grossOrders;
+
+  const totalOperatingExp = filteredExpenses.reduce((s,e)=>s + e.costSgd, 0);
+
+  // Actual Net Profit (No historical locker rent deducted)
+  const netProfit = (netLocker + grossOrders) - totalOperatingExp;
+
+  const mummyShare = Math.max(0, netProfit * 0.50);
+  const klarissaShare = Math.max(0, netProfit * 0.20);
+  const daddyShare = Math.max(0, netProfit * 0.20);
+  const khylerShare = Math.max(0, netProfit * 0.10);
+
+  return `
+  <div class="card">
+    <h2>📊 P&amp;L Financial Dashboard (Starting Aug 2025)</h2>
+    <p class="hint">Filter financials by Year and Month to view exact revenue, expenses, and profit sharing breakdown.</p>
+    <div class="row" style="max-width:480px;margin-bottom:14px">
+      <div class="field"><label>Filter Year</label>
+        <select onchange="state.pnlYear=this.value; render();">
+          <option value="All" ${year==='All'?'selected':''}>All Years (Aug 2025 - Present)</option>
+          <option value="2025" ${year==='2025'?'selected':''}>2025</option>
+          <option value="2026" ${year==='2026'?'selected':''}>2026</option>
+        </select>
+      </div>
+      <div class="field"><label>Filter Month</label>
+        <select onchange="state.pnlMonth=this.value; render();">
+          <option value="All" ${month==='All'?'selected':''}>All Months</option>
+          <option value="01" ${month==='01'?'selected':''}>01 - Jan</option>
+          <option value="02" ${month==='02'?'selected':''}>02 - Feb</option>
+          <option value="03" ${month==='03'?'selected':''}>03 - Mar</option>
+          <option value="04" ${month==='04'?'selected':''}>04 - Apr</option>
+          <option value="05" ${month==='05'?'selected':''}>05 - May</option>
+          <option value="06" ${month==='06'?'selected':''}>06 - Jun</option>
+          <option value="07" ${month==='07'?'selected':''}>07 - Jul</option>
+          <option value="08" ${month==='08'?'selected':''}>08 - Aug</option>
+          <option value="09" ${month==='09'?'selected':''}>09 - Sep</option>
+          <option value="10" ${month==='10'?'selected':''}>10 - Oct</option>
+          <option value="11" ${month==='11'?'selected':''}>11 - Nov</option>
+          <option value="12" ${month==='12'?'selected':''}>12 - Dec</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="stat"><div class="label">Gross Revenue</div><div class="value">$${fmt(totalGrossRevenue)}</div></div>
+      <div class="stat"><div class="label">Consignment Fee (${state.locker.feePct}%)</div><div class="value">−$${fmt(lockerFee)}</div></div>
+      <div class="stat"><div class="label">Operating Expenses</div><div class="value">−$${fmt(totalOperatingExp)}</div></div>
+      <div class="stat profit"><div class="label">Actual Net Profit</div><div class="value ${netProfit>=0?'pos':'neg'}">$${fmt(netProfit)}</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Profit Sharing Breakdown</h2>
+    <div class="summary-grid">
+      <div class="stat"><div class="label">Mummy (50%)</div><div class="value">$${fmt(mummyShare)}</div></div>
+      <div class="stat"><div class="label">Klarissa (20%)</div><div class="value">$${fmt(klarissaShare)}</div></div>
+      <div class="stat"><div class="label">Daddy (20%)</div><div class="value">$${fmt(daddyShare)}</div></div>
+      <div class="stat"><div class="label">Khyler (10%)</div><div class="value">$${fmt(khylerShare)}</div></div>
+    </div>
+  </div>`;
+}
+
+function renderPrintQueue(){
+  const cat = state.queueCategory;
+
+  const needPrintAll = state.products.filter(p=>p.stockLocker < p.lowThreshold && p.stockHome < p.lowThreshold);
+  const needRestockAll = state.products.filter(p=>p.stockLocker < p.lowThreshold && p.stockHome >= p.lowThreshold);
+
+  const needPrintList = needPrintAll.filter(p=> cat === 'All' || p.category === cat);
+  const needRestockList = needRestockAll.filter(p=> cat === 'All' || p.category === cat);
+
+  const catChips = ['All', ...CATEGORIES].map(c=>{
+    const cntP = needPrintAll.filter(p=> c==='All' || p.category===c).length;
+    const cntR = needRestockAll.filter(p=> c==='All' || p.category===c).length;
+    const totalCount = cntP + cntR;
+    return `
+      <span class="cat-chip ${state.queueCategory===c?'active':''}" onclick="state.queueCategory='${c}'; render();">
+        ${esc(c)} (${totalCount})
+      </span>
+    `;
+  }).join('');
+
+  const totalHomeVal = state.products.reduce((s,p)=>s+p.stockHome*p.cost,0);
+  const totalLockerVal = state.products.reduce((s,p)=>s+p.stockLocker*p.cost,0);
+
+  const printRows = needPrintList.map(p=>{
+    const defaultPrintQty = Math.max(5, 10 - p.stockHome);
+    return `<tr>
+      <td><b>${esc(p.name)}</b><div class="msg">SKU: ${esc(p.sku)}</div></td>
+      <td><span class="pill cat">${esc(p.category||'General')}</span></td>
+      <td class="num"><span class="pill out">${p.stockLocker}</span></td>
+      <td class="num"><span class="pill low">${p.stockHome}</span></td>
+      <td class="num">
+        <input id="pq-printqty-${p.id}" class="tbl-input num-in" style="width:70px;font-weight:bold;color:var(--lav-dark)" type="number" value="${defaultPrintQty}"> pcs
+      </td>
+      <td>
+        <button class="btn sm" onclick="logCompletedBatch('${p.id}')">✅ Add Batch to Home Stock</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const restockRows = needRestockList.map(p=>{
+    const recTransfer = Math.min(p.stockHome, Math.max(3, 5 - p.stockLocker));
+    return `<tr>
+      <td><b>${esc(p.name)}</b><div class="msg">SKU: ${esc(p.sku)}</div></td>
+      <td><span class="pill cat">${esc(p.category||'General')}</span></td>
+      <td class="num"><span class="pill low">${p.stockLocker}</span></td>
+      <td class="num"><span class="pill ok">${p.stockHome}</span></td>
+      <td class="num"><b>${recTransfer} pcs</b></td>
+      <td>
+        <button class="btn sm ghost" onclick="quickTransferToLocker('${p.id}', ${recTransfer})">⚡ Transfer ${recTransfer} to Locker</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="card">
+    <h2>🛈 Low Stock Summary Dashboard</h2>
+    <div class="summary-grid">
+      <div class="stat"><div class="label">Needs Printing</div><div class="value" style="color:var(--danger)">${needPrintAll.length} Items</div></div>
+      <div class="stat"><div class="label">Needs Locker Restock</div><div class="value" style="color:var(--warn)">${needRestockAll.length} Items</div></div>
+      <div class="stat"><div class="label">Total Home Inventory Cost</div><div class="value">$${fmt(totalHomeVal)}</div></div>
+      <div class="stat"><div class="label">Total Locker Inventory Cost</div><div class="value">$${fmt(totalLockerVal)}</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🎯 Filter Queue by Category Line</h2>
+    <p class="hint">Click a category pill below to view low-stock print jobs for that specific brand line.</p>
+    <div class="cat-bar">${catChips}</div>
+  </div>
+
+  <div class="card">
+    <h2>🖨️ Action Required: Turn On 3D Printer (${needPrintList.length} Items in ${esc(cat)})</h2>
+    <p class="hint">Both Suntec Locker and Home Stock are low (< 3). Set your intended print run and log completed batches.</p>
+    ${needPrintList.length===0 ? `<div class="empty">🎉 All items in category "${esc(cat)}" are sufficiently stocked at Home! No urgent prints needed.</div>` : `
+    <table>
+      <tr><th>Product Name</th><th>Category</th><th class="num">Locker Stock</th><th class="num">Home Stock</th><th class="num">Quantity to Print</th><th>Action</th></tr>
+      ${printRows}
+    </table>`}
+  </div>
+
+  <div class="card">
+    <h2>🚗 Action Required: Pack &amp; Restock Suntec Locker (${needRestockList.length} Items in ${esc(cat)})</h2>
+    <p class="hint">Locker stock is low (< 3), but you already have printed items ready at Home. Restock the locker instantly below.</p>
+    ${needRestockList.length===0 ? `<div class="empty">Locker is well stocked for category "${esc(cat)}" or waiting on prints above.</div>` : `
+    <table>
+      <tr><th>Product Name</th><th>Category</th><th class="num">Locker Stock</th><th class="num">Home Stock Ready</th><th class="num">Rec. Transfer</th><th>Action</th></tr>
+      ${restockRows}
+    </table>`}
+  </div>`;
+}
+
+function renderInventory(){
+  const q = (state.searchQuery || '').toLowerCase().trim();
+  const cat = state.selectedCategory;
+
+  const filtered = state.products.filter(p=>{
+    const matchesSearch = p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
+    const matchesCat = (cat === 'All' || p.category === cat);
+    return matchesSearch && matchesCat;
+  });
+
+  const catChips = ['All', ...CATEGORIES].map(c=>`
+    <span class="cat-chip ${state.selectedCategory===c?'active':''}" onclick="state.selectedCategory='${c}'; render();">
+      ${esc(c)} (${c==='All' ? state.products.length : state.products.filter(p=>p.category===c).length})
+    </span>
+  `).join('');
+
+  const catSelectOptions = CATEGORIES.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+  const rows = filtered.map(p=>{
+    let pillLocker = `<span class="pill ok">OK (${p.stockLocker})</span>`;
+    if(p.stockLocker<=0) pillLocker = `<span class="pill out">Out (0)</span>`;
+    else if(p.stockLocker<p.lowThreshold) pillLocker = `<span class="pill low">Low (${p.stockLocker})</span>`;
+
+    let pillHome = `<span class="pill ok">OK (${p.stockHome})</span>`;
+    if(p.stockHome<=0) pillHome = `<span class="pill out">Empty (0)</span>`;
+    else if(p.stockHome<p.lowThreshold) pillHome = `<span class="pill low">Low (${p.stockHome})</span>`;
+
+    const catOpts = CATEGORIES.map(c=>`<option value="${esc(c)}" ${p.category===c?'selected':''}>${esc(c)}</option>`).join('');
+
+    return `<tr>
+      <td><input class="tbl-input" style="width:75px" value="${esc(p.sku)}" onchange="updateProductField('${p.id}','sku',this.value)"></td>
+      <td><input class="tbl-input" value="${esc(p.name)}" onchange="updateProductField('${p.id}','name',this.value)"></td>
+      <td><select class="tbl-input" style="width:135px" onchange="updateProductField('${p.id}','category',this.value)">${catOpts}</select></td>
+      <td class="num"><input class="tbl-input num-in" type="number" step="0.1" value="${p.cost}" onchange="updateProductField('${p.id}','cost',this.value)"></td>
+      <td class="num"><input class="tbl-input num-in" type="number" step="0.1" value="${p.priceToy}" onchange="updateProductField('${p.id}','priceToy',this.value)"></td>
+      <td class="num"><input class="tbl-input num-in" type="number" step="0.1" value="${p.priceShopee}" onchange="updateProductField('${p.id}','priceShopee',this.value)"></td>
+      <td class="num"><input class="tbl-input num-in" type="number" step="0.1" value="${p.priceDirect}" onchange="updateProductField('${p.id}','priceDirect',this.value)"></td>
+      <td class="num"><input class="tbl-input num-in" type="number" value="${p.stockHome}" onchange="updateProductField('${p.id}','stockHome',this.value)"> ${pillHome}</td>
+      <td class="num"><input class="tbl-input num-in" type="number" value="${p.stockLocker}" onchange="updateProductField('${p.id}','stockLocker',this.value)"> ${pillLocker}</td>
+      <td><button class="icon-btn" onclick="deleteProduct('${p.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="card">
+    <h2>➕ Add New Product to Catalog</h2>
+    <div class="row">
+      <div class="field"><label>SKU</label><input id="np-sku" placeholder="e.g. MT05"></div>
+      <div class="field" style="flex:2"><label>Product Description *</label><input id="np-name" placeholder="e.g. Mini Dino Charm"></div>
+      <div class="field"><label>Category</label><select id="np-cat">${catSelectOptions}</select></div>
+      <div class="field"><label>Unit Cost ($)</label><input id="np-cost" type="number" step="0.01" placeholder="1.50"></div>
+      <div class="field"><label>Locker ($)</label><input id="np-priceToy" type="number" step="0.01" placeholder="7.90"></div>
+      <div class="field"><label>Shopee ($)</label><input id="np-priceShopee" type="number" step="0.01" placeholder="7.90"></div>
+      <div class="field"><label>Direct ($)</label><input id="np-priceDirect" type="number" step="0.01" placeholder="6.90"></div>
+      <div class="field"><label>Home Stock</label><input id="np-stockHome" type="number" value="10"></div>
+      <div class="field"><label>Locker Stock</label><input id="np-stockLocker" type="number" value="5"></div>
+      <button class="btn" onclick="addProduct()">Add Product</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🔍 Category Filter &amp; Catalog Search (${filtered.length} of ${state.products.length} Items)</h2>
+    <p class="hint">Click a category pill below or search by keyword to filter your product lines instantly.</p>
+    <div class="cat-bar">${catChips}</div>
+    <input class="search-box" type="text" placeholder="🔍 Search product name or SKU..." value="${esc(state.searchQuery)}" oninput="state.searchQuery=this.value; render();">
+    ${filtered.length===0 ? `<div class="empty">No products found in category "${esc(state.selectedCategory)}".</div>` : `
+    <table>
+      <tr>
+        <th style="width:80px">SKU</th>
+        <th>Product Description</th>
+        <th style="width:135px">Category</th>
+        <th class="num" style="width:70px">Unit Cost</th>
+        <th class="num" style="width:70px">Locker $</th>
+        <th class="num" style="width:70px">Shopee $</th>
+        <th class="num" style="width:70px">Direct $</th>
+        <th class="num" style="width:130px">Home Stock</th>
+        <th class="num" style="width:130px">Suntec Locker</th>
+        <th></th>
+      </tr>
+      ${rows}
+    </table>`}
+  </div>`;
+}
+
+function renderOrders(){
+  const year = state.orderYear;
+  const month = state.orderMonth;
+
+  const filteredOrders = state.orders.filter(o=>{
+    const y = o.date.slice(0,4);
+    const m = o.date.slice(5,7);
+    return (year === 'All' || y === year) && (month === 'All' || m === month);
+  });
+
+  const prodOptions = state.products.map(p=>`<option value="${p.id}">${esc(p.name)} [${esc(p.category||'Gen')}] (Home: ${p.stockHome})</option>`).join('');
+  const rows = filteredOrders.map(o=>{
+    const p = state.products.find(p=>p.id===o.productId);
+    const tot = o.totalPrice || (o.qty * o.unitPrice);
+    return `<tr>
+      <td><b>${o.orderNo}</b><br><span style="font-size:10.5px;color:var(--muted)">${o.date}</span></td>
+      <td>${esc(o.customer)} <div class="msg">Channel: ${o.channel||'Direct'}</div></td>
+      <td>${p ? esc(p.name) : esc(o.productId)} <span class="pill cat">${p ? esc(p.category) : 'Order'}</span><div class="msg">${esc(o.details||'')}</div></td>
+      <td class="num">${o.qty}</td>
+      <td class="num">$${fmt(o.unitPrice)}</td>
+      <td class="num"><b>$${fmt(tot)}</b></td>
+      <td>${o.payment}</td>
+      <td>${o.status}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="card">
+    <h2>Log Direct / Shopee / Custom Order</h2>
+    <div class="row">
+      <div class="field"><label>Date</label><input id="ord-date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Channel</label>
+        <select id="ord-channel" onchange="autoFillOrderPrice()">
+          <option value="Direct / IG">Direct / IG</option>
+          <option value="Shopee">Shopee</option>
+          <option value="Toy Outpost">Toy Outpost</option>
+        </select>
+      </div>
+      <div class="field"><label>Customer Name</label><input id="ord-customer" placeholder="e.g. Clara / Eileen"></div>
+      <div class="field" style="flex:2"><label>Product</label><select id="ord-product" onchange="autoFillOrderPrice()">${prodOptions}</select></div>
+      <div class="field"><label>Qty</label><input id="ord-qty" type="number" value="1"></div>
+      <div class="field"><label>Selling Price ($)</label><input id="ord-price" placeholder="Auto-filled"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="field" style="flex:2"><label>Details (Names / Character / Colors)</label><input id="ord-details" placeholder="e.g. Thad | Panda | Black Gi"></div>
+      <div class="field"><label>Payment</label><select id="ord-pay"><option value="Paid">Paid</option><option value="Pending">Pending</option></select></div>
+      <div class="field"><label>Status</label><select id="ord-status"><option value="Delivered">Delivered</option><option value="Printed">Printed</option></select></div>
+      <button class="btn" onclick="addOrder()">Add Order</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Order History (${filteredOrders.length} Orders Displayed)</h2>
+    <div class="row" style="max-width:480px;margin-bottom:12px">
+      <div class="field"><label>Filter Year</label>
+        <select onchange="state.orderYear=this.value; render();">
+          <option value="All" ${year==='All'?'selected':''}>All Years</option>
+          <option value="2025" ${year==='2025'?'selected':''}>2025</option>
+          <option value="2026" ${year==='2026'?'selected':''}>2026</option>
+        </select>
+      </div>
+      <div class="field"><label>Filter Month</label>
+        <select onchange="state.orderMonth=this.value; render();">
+          <option value="All" ${month==='All'?'selected':''}>All Months</option>
+          <option value="01" ${month==='01'?'selected':''}>Jan</option>
+          <option value="02" ${month==='02'?'selected':''}>Feb</option>
+          <option value="03" ${month==='03'?'selected':''}>Mar</option>
+          <option value="04" ${month==='04'?'selected':''}>Apr</option>
+          <option value="05" ${month==='05'?'selected':''}>May</option>
+          <option value="06" ${month==='06'?'selected':''}>Jun</option>
+          <option value="07" ${month==='07'?'selected':''}>Jul</option>
+          <option value="08" ${month==='08'?'selected':''}>Aug</option>
+          <option value="09" ${month==='09'?'selected':''}>Sep</option>
+          <option value="10" ${month==='10'?'selected':''}>Oct</option>
+          <option value="11" ${month==='11'?'selected':''}>Nov</option>
+          <option value="12" ${month==='12'?'selected':''}>Dec</option>
+        </select>
+      </div>
+    </div>
+    ${filteredOrders.length===0 ? `<div class="empty">No orders found for selected filters.</div>` : `
+    <table>
+      <tr><th>Order #</th><th>Customer / Channel</th><th>Product / Category</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Total</th><th>Payment</th><th>Status</th></tr>
+      ${rows}
+    </table>`}
+  </div>`;
+}
+
+function renderLog(){
+  const options = state.products.map(p=>`<option value="${p.id}">${esc(p.name)} (Home: ${p.stockHome} | Locker: ${p.stockLocker})</option>`).join('');
+  const rows = state.movements.map(m=>{
+    const p = state.products.find(p=>p.id===m.productId);
+    const label = {sale:'🛍️ Locker Sale', restock:'🔄 Restock (Home→Locker)', adjustment:'⚠️ Shrinkage/Damage'}[m.type];
+    return `<tr>
+      <td>${m.date}</td>
+      <td>${label}</td>
+      <td>${p ? esc(p.name) : '(Deleted)'}</td>
+      <td class="num">${m.qty}</td>
+      <td class="num">${m.type==='sale' ? '$'+fmt(m.qty*m.unitPrice) : '—'}</td>
+      <td>${esc(m.note||'')}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="card">
+    <h2>Log Toy Outpost Suntec Activity (With Home Transfer)</h2>
+    <div class="row">
+      <div class="field" style="flex:2"><label>Product</label><select id="mv-product">${options}</select></div>
+      <div class="field"><label>Type</label>
+        <select id="mv-type">
+          <option value="restock">Locker Restock (Deducts Home -> Adds Locker)</option>
+          <option value="sale">Locker Sale (Deducts Locker Stock)</option>
+          <option value="adjustment">Shrinkage / Loss (Deducts Locker Stock)</option>
+        </select>
+      </div>
+      <div class="field"><label>Qty</label><input id="mv-qty" type="number" value="1"></div>
+      <div class="field"><label>Date</label><input id="mv-date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Note</label><input id="mv-note" placeholder="Optional"></div>
+      <button class="btn" onclick="logMovement()">Save Log</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Locker Log History</h2>
+    <table>
+      <tr><th>Date</th><th>Type</th><th>Product</th><th class="num">Qty</th><th class="num">Total</th><th>Note</th></tr>
+      ${rows}
+    </table>
+  </div>`;
+}
+
+function renderExpenses(){
+  const year = state.expYear;
+  const month = state.expMonth;
+
+  const filteredExpenses = state.expenses.filter(e=>{
+    const y = e.date.slice(0,4);
+    const m = e.date.slice(5,7);
+    return (year === 'All' || y === year) && (month === 'All' || m === month);
+  });
+
+  const presetOptions = COMMON_EXPENSE_ITEMS.map(i=>`<option value="${esc(i)}">${esc(i)}</option>`).join('');
+  const rows = filteredExpenses.map(e=>`<tr>
+    <td>${e.date}</td>
+    <td><b>${esc(e.item)}</b></td>
+    <td>${esc(e.vendor||'—')}</td>
+    <td class="num">${e.curr==='RMB' ? '¥'+fmt(e.rawCost) : '—'}</td>
+    <td class="num"><b>$${fmt(e.costSgd)}</b></td>
+  </tr>`).join('');
+
+  return `
+  <div class="card">
+    <h2>Log Operating Expense (RMB Direct Conversion)</h2>
+    <div class="row">
+      <div class="field"><label>Date</label><input id="exp-date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Vendor</label>
+        <select id="exp-vendor">
+          <option value="拼多多 (Pinduoduo)">拼多多 (Pinduoduo)</option>
+          <option value="淘宝 (Taobao)">淘宝 (Taobao)</option>
+          <option value="Aliexpress">Aliexpress</option>
+          <option value="Shopee">Shopee</option>
+          <option value="Others">Others</option>
+        </select>
+      </div>
+      <div class="field"><label>Preset Item Dropdown</label>
+        <select id="exp-preset" onchange="syncPresetExpense()">
+          <option value="custom">-- Type Custom or Select Below --</option>
+          ${presetOptions}
+        </select>
+      </div>
+      <div class="field" style="flex:1.5"><label>Item Description</label><input id="exp-item" placeholder="e.g. PLA Filament / 51 Hook Chains"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="field"><label>Currency</label>
+        <select id="exp-curr" onchange="autoConvertExpenseCost()">
+          <option value="RMB">RMB (¥)</option>
+          <option value="SGD">SGD ($)</option>
+        </select>
+      </div>
+      <div class="field"><label>Cost in Currency</label><input id="exp-rawcost" type="number" step="0.01" oninput="autoConvertExpenseCost()" placeholder="e.g. 100"></div>
+      <div class="field"><label>Converted Cost (SGD)</label><input id="exp-costSgd" type="number" step="0.01" placeholder="Auto-calculated"></div>
+      <button class="btn" onclick="addExpense()">Add Expense</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Expenses History (${filteredExpenses.length} Operating Expenses Displayed)</h2>
+    <div class="row" style="max-width:480px;margin-bottom:12px">
+      <div class="field"><label>Filter Year</label>
+        <select onchange="state.expYear=this.value; render();">
+          <option value="All" ${year==='All'?'selected':''}>All Years</option>
+          <option value="2025" ${year==='2025'?'selected':''}>2025</option>
+          <option value="2026" ${year==='2026'?'selected':''}>2026</option>
+        </select>
+      </div>
+      <div class="field"><label>Filter Month</label>
+        <select onchange="state.expMonth=this.value; render();">
+          <option value="All" ${month==='All'?'selected':''}>All Months</option>
+          <option value="01" ${month==='01'?'selected':''}>Jan</option>
+          <option value="02" ${month==='02'?'selected':''}>Feb</option>
+          <option value="03" ${month==='03'?'selected':''}>Mar</option>
+          <option value="04" ${month==='04'?'selected':''}>Apr</option>
+          <option value="05" ${month==='05'?'selected':''}>May</option>
+          <option value="06" ${month==='06'?'selected':''}>Jun</option>
+          <option value="07" ${month==='07'?'selected':''}>Jul</option>
+          <option value="08" ${month==='08'?'selected':''}>Aug</option>
+          <option value="09" ${month==='09'?'selected':''}>Sep</option>
+          <option value="10" ${month==='10'?'selected':''}>Oct</option>
+          <option value="11" ${month==='11'?'selected':''}>Nov</option>
+          <option value="12" ${month==='12'?'selected':''}>Dec</option>
+        </select>
+      </div>
+    </div>
+    ${filteredExpenses.length===0 ? `<div class="empty">No operating expenses found for selected filters.</div>` : `
+    <table>
+      <tr><th>Date</th><th>Item Description</th><th>Vendor</th><th class="num">Cost (RMB)</th><th class="num">Cost (SGD)</th></tr>
+      ${rows}
+    </table>`}
+  </div>`;
+}
+
+function renderFilament(){
+  const rows = state.filaments.map(f=>{
+    let pct = Math.min(100, Math.round((f.weightGrams / 1000) * 100));
+    let pillClass = pct > 50 ? 'ok' : (pct > 20 ? 'low' : 'out');
+    return `<tr>
+      <td><b>${esc(f.brand)}</b></td>
+      <td>${esc(f.color)}</td>
+      <td>${esc(f.vendor)}</td>
+      <td class="num">¥${fmt(f.costRmb)} / $${fmt(f.costSgd)}</td>
+      <td class="num">
+        <input class="tbl-input num-in" style="width:80px" type="number" value="${f.weightGrams}" onchange="updateFilamentWeight('${f.id}', this.value)"> g
+      </td>
+      <td><span class="pill ${pillClass}">${pct}% Left</span></td>
+      <td><button class="icon-btn" onclick="deleteFilament('${f.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="card">
+    <h2>Track Filament Inventory &amp; Vendors</h2>
+    <div class="row">
+      <div class="field"><label>Vendor</label>
+        <select id="fil-vendor">
+          <option value="淘宝 (Taobao)">淘宝 (Taobao)</option>
+          <option value="拼多多 (Pinduoduo)">拼多多 (Pinduoduo)</option>
+          <option value="Shopee">Shopee</option>
+          <option value="Others">Others</option>
+        </select>
+      </div>
+      <div class="field"><label>Brand / Material</label><input id="fil-brand" placeholder="e.g. eSun PLA+"></div>
+      <div class="field"><label>Color</label><input id="fil-color" placeholder="e.g. Matte Pastel Blue"></div>
+      <div class="field"><label>Spool Cost (RMB ¥)</label><input id="fil-rmb" type="number" step="0.1" placeholder="e.g. 45"></div>
+      <div class="field"><label>Spool Cost (SGD $)</label><input id="fil-sgd" type="number" step="0.1" placeholder="Or SGD"></div>
+      <div class="field"><label>Remaining (g)</label><input id="fil-weight" type="number" value="1000"></div>
+      <button class="btn" onclick="addFilament()">Add Spool</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Filament Spools Stock</h2>
+    <table>
+      <tr><th>Brand / Material</th><th>Color</th><th>Vendor</th><th class="num">Cost</th><th class="num">Remaining Weight</th><th>Stock Level</th><th></th></tr>
+      ${rows}
+    </table>
+  </div>`;
+}
+
+function renderCalculator(){
+  const filOptions = state.filaments.map(f=>`<option value="${f.id}">${esc(f.brand)} - ${esc(f.color)} ($${fmt(f.costSgd)}/kg)</option>`).join('');
+
+  return `
+  <div class="card">
+    <h2>Singapore 3D Printing Cost &amp; Pricing Calculator</h2>
+    <p class="hint">Select active filament from inventory or type manual spool cost ($/kg).</p>
+    <div class="row" style="margin-bottom:12px">
+      <div class="field" style="flex:2"><label>Pull Filament Cost from Stock</label>
+        <select id="calc-fil-select" onchange="syncCalculatorFilament()">
+          <option value="">-- Manual Input or Select Below --</option>
+          ${filOptions}
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Filament Used (Grams)</label><input id="calc-grams" type="number" value="20" oninput="calculatePrintCost()"></div>
+      <div class="field"><label>Filament Cost ($ / kg)</label><input id="calc-filcost" type="number" value="21.45" oninput="calculatePrintCost()"></div>
+      <div class="field"><label>Print Time (Hours)</label><input id="calc-hours" type="number" step="0.1" value="1.5" oninput="calculatePrintCost()"></div>
+      <div class="field"><label>Printer Power (Watts)</label><input id="calc-watts" type="number" value="150" oninput="calculatePrintCost()"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="field"><label>Accessories Cost ($)</label><input id="calc-acc" type="number" step="0.05" value="0.55" oninput="calculatePrintCost()"></div>
+      <div class="field"><label>Packaging Cost ($)</label><input id="calc-pack" type="number" step="0.05" value="0.40" oninput="calculatePrintCost()"></div>
+      <div class="field"><label>Desired Profit Markup (%)</label><input id="calc-markup" type="number" value="150" oninput="calculatePrintCost()"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Calculated Job Breakdown</h2>
+    <div class="summary-grid">
+      <div class="stat"><div class="label">Material Cost</div><div class="value" id="calc-res-mat">$0.00</div></div>
+      <div class="stat"><div class="label">SG Electricity Cost</div><div class="value" id="calc-res-power">$0.00</div></div>
+      <div class="stat"><div class="label">Total Unit Cost</div><div class="value" id="calc-res-total">$0.00</div></div>
+      <div class="stat profit"><div class="label">Suggested Sell Price</div><div class="value pos" id="calc-res-price">$0.00</div></div>
+      <div class="stat profit"><div class="label">Estimated Unit Profit</div><div class="value pos" id="calc-res-profit">$0.00</div></div>
+    </div>
+  </div>`;
+}
+
+loadState();
+</script>
+</body>
+</html>
