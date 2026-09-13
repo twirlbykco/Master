@@ -147,6 +147,8 @@ function addOrderItem(){
 }
 function removeOrderItem(id){ state.orderDraft=state.orderDraft.filter(i=>i.id!==id); saveState(); render(); }
 function clearOrderDraft(){ if(state.orderDraft.length && !confirm('Clear all items from this PO?')) return; state.orderDraft=[]; state.orderHeaderDraft={}; saveState(); render(); }
+function orderStockLocation(channel){ return channel==='Toy Outpost'?'stockLocker':'stockHome'; }
+function adjustOrderStock(product,location,delta){ if(!product||!location)return; product[location]=Math.max(0,(Number(product[location])||0)+delta); }
 function addOrder(){
   captureOrderHeaderDraft();
   if(!state.orderDraft.length){ alert('Add at least one item to this PO first.'); return; }
@@ -159,14 +161,15 @@ function addOrder(){
   const shipping=h.channel==='Shopee' ? h.shopeeShipping : 0;
   state.orderDraft.forEach((i,index)=>{
     const p=state.products.find(p=>p.id===i.productId);
-    if(p && h.channel!=='Toy Outpost') p.stockHome=Math.max(0,p.stockHome-i.qty);
+    const stockLocation=orderStockLocation(h.channel);
+    adjustOrderStock(p,stockLocation,-i.qty);
     const itemFee=gross>0 ? feeAmt*((i.qty*i.unitPrice)/gross) : 0;
     const itemShipping=index===0 ? shipping : 0;
     state.orders.unshift({
       id:uid(),groupId,orderNo,date:h.date,customer:h.customer||h.channel,channel:h.channel,
       productId:i.productId,qty:i.qty,discPct:i.discPct,details:i.details,unitPrice:i.unitPrice,
       totalPrice:i.qty*i.unitPrice,shopeeFeeAmt:itemFee,shopeeShippingAmt:itemShipping,
-      nettReceived:i.qty*i.unitPrice-itemFee-itemShipping,payment:h.payment,status:h.status
+      nettReceived:i.qty*i.unitPrice-itemFee-itemShipping,payment:h.payment,status:h.status,stockLocation
     });
   });
   if(h.channel==='Shopee' && feeAmt+shipping>0) state.expenses.unshift({
@@ -179,7 +182,7 @@ function updateOrderField(orderId, field, value){  const o = state.orders.find(o
 function deletePurchaseOrder(orderNo){
   if(!confirm('Delete the entire PO '+orderNo+' and restore its stock?')) return;
   const removed=state.orders.filter(o=>o.orderNo===orderNo);
-  removed.forEach(o=>{const p=state.products.find(p=>p.id===o.productId);if(p&&o.channel!=='Toy Outpost')p.stockHome+=Number(o.qty)||0;});
+  removed.forEach(o=>{const p=state.products.find(p=>p.id===o.productId);const location=o.stockLocation||(o.channel==='Toy Outpost'?null:'stockHome');adjustOrderStock(p,location,Number(o.qty)||0);});
   state.orders=state.orders.filter(o=>o.orderNo!==orderNo);
   state.expenses=state.expenses.filter(e=>e.id!=='exp_shopee_'+orderNo);
   saveState(); render();
@@ -206,15 +209,16 @@ function savePurchaseOrderEdits(originalOrderNo){
   const feeAmt=channel==='Shopee'?Math.max(0,parseFloat(document.getElementById('edit-order-fee')?.value)||0):0;
   const shipping=channel==='Shopee'?Math.max(0,parseFloat(document.getElementById('edit-order-shipping')?.value)||0):0;
   const edits=items.map(o=>({order:o,qty:Math.max(1,parseInt(document.getElementById('edit-order-qty-'+o.id)?.value)||1),unitPrice:Math.max(0,parseFloat(document.getElementById('edit-order-price-'+o.id)?.value)||0),details:document.getElementById('edit-order-details-'+o.id)?.value.trim()||''}));
-  items.forEach(o=>{const p=state.products.find(p=>p.id===o.productId);if(p&&o.channel!=='Toy Outpost')p.stockHome+=(Number(o.qty)||0);});
+  items.forEach(o=>{const p=state.products.find(p=>p.id===o.productId);const location=o.stockLocation||(o.channel==='Toy Outpost'?null:'stockHome');adjustOrderStock(p,location,Number(o.qty)||0);});
   const gross=edits.reduce((sum,e)=>sum+e.qty*e.unitPrice,0);
   edits.forEach((e,index)=>{
     const o=e.order,p=state.products.find(p=>p.id===o.productId);
-    if(p&&channel!=='Toy Outpost')p.stockHome=Math.max(0,p.stockHome-e.qty);
+    const stockLocation=orderStockLocation(channel);
+    adjustOrderStock(p,stockLocation,-e.qty);
     const itemTotal=e.qty*e.unitPrice;
     const itemFee=gross>0?feeAmt*(itemTotal/gross):0;
     const itemShipping=index===0?shipping:0;
-    Object.assign(o,{orderNo:newOrderNo,date,customer,channel,payment,status,qty:e.qty,unitPrice:e.unitPrice,details:e.details,totalPrice:itemTotal,shopeeFeeAmt:itemFee,shopeeShippingAmt:itemShipping,nettReceived:itemTotal-itemFee-itemShipping});
+    Object.assign(o,{orderNo:newOrderNo,date,customer,channel,payment,status,qty:e.qty,unitPrice:e.unitPrice,details:e.details,totalPrice:itemTotal,shopeeFeeAmt:itemFee,shopeeShippingAmt:itemShipping,nettReceived:itemTotal-itemFee-itemShipping,stockLocation});
   });
   state.expenses=state.expenses.filter(e=>e.id!=='exp_shopee_'+originalOrderNo && e.id!=='exp_shopee_'+newOrderNo);
   if(channel==='Shopee' && feeAmt+shipping>0)state.expenses.unshift({id:'exp_shopee_'+newOrderNo,date,category:'Platform Fees',item:'Shopee Platform & Shipping Fees ('+newOrderNo+')',vendor:'Shopee',curr:'SGD',rawCost:feeAmt+shipping,costSgd:feeAmt+shipping});
@@ -250,29 +254,57 @@ function renderAudit(){  const lockerOnlyProducts = state.products.filter(p => !
   const rows = lockerOnlyProducts.map(p=>{    const cnt = state.auditDraft[p.id] !== undefined ? state.auditDraft[p.id] : p.stockLocker;    const diff = cnt - p.stockLocker;    let diffPill = `<span class="pill ok">Match</span>`;    if(diff > 0) diffPill = `<span class="pill low">+${diff}</span>`;    if(diff < 0) diffPill = `<span class="pill out">${diff}</span>`;
     return `    <div class="audit-card">      <div>        <b>${esc(p.name)}</b>        <div class="msg">SKU: ${esc(p.sku)} | Category: ${esc(p.category)} | Expected: ${p.stockLocker} ${diffPill}</div>      </div>      <div style="display:flex;align-items:center;gap:10px">        <button class="audit-btn" onclick="adjustAuditCount('${p.id}', -1)">−</button>        <span style="font-size:18px;font-weight:bold;width:30px;text-align:center">${cnt}</span>        <button class="audit-btn" onclick="adjustAuditCount('${p.id}', 1)">+</button>      </div>    </div>`;  }).join('');
   return `  <div class="card">    <h2>📱 Fast Mobile Walk-the-Locker Mode</h2>    <p class="hint">Showing strictly items with active Locker Inventory (${lockerOnlyProducts.length} items at Suntec).</p>    <button class="btn" onclick="saveAuditState()">💾 Save Audit &amp; Sync System Stock</button>  </div>  <div class="card">    ${lockerOnlyProducts.length===0 ? `<div class="empty">No products currently have stock registered at the locker (Locker Stock = 0). Restock the locker or update stock levels in the Catalog tab.</div>` : rows}  </div>`;}
-function renderSummary(){  const year = state.pnlYear;  const month = state.pnlMonth;
-  // Filter Orders
-  const filteredOrders = state.orders.filter(o=>{    if(o.payment==='Gift') return false;    const y = o.date.slice(0,4);    const m = o.date.slice(5,7);    return (year === 'All' || y === year) && (month === 'All' || m === month);  });
-  // Filter Expenses
-  const filteredExpenses = state.expenses.filter(e=>{    const y = e.date.slice(0,4);    const m = e.date.slice(5,7);    return (year === 'All' || y === year) && (month === 'All' || m === month);  });
-  // Filter Locker Movements
-  const lockerSales = state.movements.filter(m=>{    if(m.type !== 'sale') return false;    const y = m.date.slice(0,4);    const mth = m.date.slice(5,7);    return (year === 'All' || y === year) && (month === 'All' || mth === month);  });
-  // Channel Revenue Breakdowns
-  const grossLocker = lockerSales.reduce((s,m)=>s + m.qty*m.unitPrice, 0);  const lockerFee = grossLocker * (state.locker.feePct/100);  const netLocker = grossLocker - lockerFee;
-  const shopeeOrders = filteredOrders.filter(o => o.channel === 'Shopee' || (o.orderNo && o.orderNo.startsWith('SHP')));  const directOrders = filteredOrders.filter(o => o.channel !== 'Shopee' && (!o.orderNo || !o.orderNo.startsWith('SHP')));
-  const grossShopee = shopeeOrders.reduce((s,o)=>s + (o.totalPrice || o.qty * o.unitPrice), 0);  const shopeeFeesTotal = shopeeOrders.reduce((s,o)=>s + (o.shopeeFeeAmt || 0) + (o.shopeeShippingAmt || 0), 0);
-  const grossDirect = directOrders.reduce((s,o)=>s + (o.totalPrice || o.qty * o.unitPrice), 0);
-  const totalGrossRevenue = grossLocker + grossShopee + grossDirect;  const totalOperatingExp = filteredExpenses.reduce((s,e)=>s + e.costSgd, 0);
-  let monthKey = (year !== 'All' && month !== 'All') ? `${year}-${month}` : '2026-08';  const monthRentVal = state.monthlyRent[monthKey] !== undefined ? state.monthlyRent[monthKey] : 140;
-  const filteredAdj = state.pnlAdjustments.filter(a=>{    const y = a.date.slice(0,4);    const m = a.date.slice(5,7);    return (year === 'All' || y === year) && (month === 'All' || m === month);  });  const totalPnlAdj = filteredAdj.reduce((s,a)=>s + a.amount, 0);
-  const netProfit = (totalGrossRevenue - lockerFee) - monthRentVal - totalOperatingExp + totalPnlAdj;
-  const mummyShare = Math.max(0, netProfit * 0.50);  const klarissaShare = Math.max(0, netProfit * 0.20);  const daddyShare = Math.max(0, netProfit * 0.20);  const khylerShare = Math.max(0, netProfit * 0.10);
-  const adjRows = state.pnlAdjustments.map(a=>`<tr>    <td>${a.date}</td>    <td>${esc(a.note)}</td>    <td class="num"><b>${a.amount >= 0 ? '+$'+fmt(a.amount) : '−$'+fmt(Math.abs(a.amount))}</b></td>    <td><button class="icon-btn" onclick="deletePnlAdjustment('${a.id}')">✕</button></td>  </tr>`).join('');
-  return `  <div class="card">    <h2>📊 P&amp;L Financial Dashboard</h2>    <div class="row" style="max-width:580px;margin-bottom:14px">      <div class="field"><label>Filter Year</label>        <select onchange="state.pnlYear=this.value; render();">          <option value="All" ${year==='All'?'selected':''}>All Years</option>          <option value="2026" ${year==='2026'?'selected':''}>2026</option>        </select>      </div>      <div class="field"><label>Filter Month</label>        <select onchange="state.pnlMonth=this.value; render();">          <option value="All" ${month==='All'?'selected':''}>All Months</option>          <option value="08" ${month==='08'?'selected':''}>08 - Aug</option>          <option value="09" ${month==='09'?'selected':''}>09 - Sep</option>          <option value="10" ${month==='10'?'selected':''}>10 - Oct</option>          <option value="11" ${month==='11'?'selected':''}>11 - Nov</option>          <option value="12" ${month==='12'?'selected':''}>12 - Dec</option>        </select>      </div>      <div class="field"><label>Monthly Locker Rent ($)</label>        <input type="number" value="${monthRentVal}" onchange="updateMonthlyRent('${monthKey}', this.value)">      </div>    </div>
-    <div class="summary-grid">      <div class="stat"><div class="label">Gross Revenue</div><div class="value">$${fmt(totalGrossRevenue)}</div></div>      <div class="stat"><div class="label">Consignment Fee (${state.locker.feePct}%)</div><div class="value">−$${fmt(lockerFee)}</div></div>      <div class="stat"><div class="label">Operating Expenses</div><div class="value">−$${fmt(totalOperatingExp)}</div></div>      <div class="stat"><div class="label">Locker Rent (${monthKey})</div><div class="value">−$${fmt(monthRentVal)}</div></div>      <div class="stat"><div class="label">P&amp;L Adjustments</div><div class="value">${totalPnlAdj>=0 ? '+$'+fmt(totalPnlAdj) : '−$'+fmt(Math.abs(totalPnlAdj))}</div></div>      <div class="stat profit"><div class="label">Actual Net Profit</div><div class="value ${netProfit>=0?'pos':'neg'}">$${fmt(netProfit)}</div></div>    </div>  </div>
-  <div class="card">    <h2>🏪 Multi-Channel Sales Performance Summary</h2>    <p class="hint">Compares performance across Toy Outpost Suntec Locker, Shopee, and Direct/IG Sales to inform channel expansion or ad spend.</p>    <table>      <tr><th>Sales Channel</th><th class="num">Orders / Sales</th><th class="num">Gross Revenue</th><th class="num">Channel Fees</th><th class="num">Net Revenue</th></tr>      <tr>        <td><b>Toy Outpost Suntec Locker</b></td>        <td class="num">${lockerSales.length} sales</td>        <td class="num">$${fmt(grossLocker)}</td>        <td class="num">−$${fmt(lockerFee)} (${state.locker.feePct}%)</td>        <td class="num"><b>$${fmt(netLocker)}</b></td>      </tr>      <tr>        <td><b>Shopee Store</b></td>        <td class="num">${shopeeOrders.length} orders</td>        <td class="num">$${fmt(grossShopee)}</td>        <td class="num">−$${fmt(shopeeFeesTotal)}</td>        <td class="num"><b>$${fmt(grossShopee - shopeeFeesTotal)}</b></td>      </tr>      <tr>        <td><b>Direct / IG Sales</b></td>        <td class="num">${directOrders.length} orders</td>        <td class="num">$${fmt(grossDirect)}</td>        <td class="num">$0.00</td>        <td class="num"><b>$${fmt(grossDirect)}</b></td>      </tr>      <tr style="font-weight:bold;background:var(--bg-cream)">        <td>TOTAL REVENUE</td>        <td class="num">${lockerSales.length + filteredOrders.length} sales</td>        <td class="num">$${fmt(totalGrossRevenue)}</td>        <td class="num">−$${fmt(lockerFee + shopeeFeesTotal)}</td>        <td class="num">$${fmt(totalGrossRevenue - lockerFee - shopeeFeesTotal)}</td>      </tr>    </table>  </div>
-  <div class="card">    <h2>✏️ Manual P&amp;L Adjustment / Correction</h2>    <p class="hint">Type an amount (e.g. +50 or -20) to manually adjust calculated profit for a month.</p>    <div class="row">      <div class="field"><label>Date</label><input id="pnl-adj-date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>      <div class="field" style="flex:2"><label>Adjustment Note / Reason</label><input id="pnl-adj-note" placeholder="e.g. Unrecorded cash payout or promo correction"></div>      <div class="field"><label>Adjustment Amount ($)</label><input id="pnl-adj-amt" type="number" step="0.01" placeholder="+50 or -20"></div>      <button class="btn" onclick="addPnlAdjustment()">Add Adjustment</button>    </div>    ${state.pnlAdjustments.length > 0 ? `<table style="margin-top:12px"><tr><th>Date</th><th>Note</th><th class="num">Amount</th><th></th></tr>${adjRows}</table>` : ''}  </div>
-  <div class="card">    <h2>Profit Sharing Breakdown (AKSK)</h2>    <div class="summary-grid">      <div class="stat"><div class="label">A (50%)</div><div class="value">$${fmt(mummyShare)}</div></div>      <div class="stat"><div class="label">K (20%)</div><div class="value">$${fmt(klarissaShare)}</div></div>      <div class="stat"><div class="label">S (20%)</div><div class="value">$${fmt(daddyShare)}</div></div>      <div class="stat"><div class="label">K (10%)</div><div class="value">$${fmt(khylerShare)}</div></div>    </div>  </div>`;}
+function renderSummary(){
+  const year=state.pnlYear,month=state.pnlMonth;
+  const matchesPeriod=date=>{const d=String(date||'');return /^\d{4}-\d{2}-\d{2}$/.test(d)&&(year==='All'||d.slice(0,4)===year)&&(month==='All'||d.slice(5,7)===month);};
+  const orderValue=o=>Number(o.totalPrice)||((Number(o.qty)||0)*(Number(o.unitPrice)||0));
+  const orderCost=o=>{const p=state.products.find(p=>p.id===o.productId);return (Number(o.qty)||0)*(Number(p?.cost)||0);};
+  const orderCount=items=>new Set(items.map(o=>o.orderNo||o.groupId||o.id)).size;
+  const filteredOrders=state.orders.filter(o=>o.payment!=='Gift'&&matchesPeriod(o.date));
+  const filteredExpenses=state.expenses.filter(e=>matchesPeriod(e.date));
+  const lockerSales=state.movements.filter(m=>m.type==='sale'&&matchesPeriod(m.date));
+  const toyOrders=filteredOrders.filter(o=>o.channel==='Toy Outpost'||String(o.orderNo||'').startsWith('TOY'));
+  const shopeeOrders=filteredOrders.filter(o=>o.channel==='Shopee'||String(o.orderNo||'').startsWith('SHP'));
+  const directOrders=filteredOrders.filter(o=>!toyOrders.includes(o)&&!shopeeOrders.includes(o));
+  const grossToyOrders=toyOrders.reduce((s,o)=>s+orderValue(o),0);
+  const grossLockerLogs=lockerSales.reduce((s,m)=>s+(Number(m.qty)||0)*(Number(m.unitPrice)||0),0);
+  const grossToy=grossToyOrders+grossLockerLogs;
+  const lockerFee=grossToy*(Number(state.locker.feePct)||0)/100;
+  const grossShopee=shopeeOrders.reduce((s,o)=>s+orderValue(o),0);
+  const shopeeFeesTotal=shopeeOrders.reduce((s,o)=>s+(Number(o.shopeeFeeAmt)||0)+(Number(o.shopeeShippingAmt)||0),0);
+  const grossDirect=directOrders.reduce((s,o)=>s+orderValue(o),0);
+  const totalGrossRevenue=grossToy+grossShopee+grossDirect;
+  const orderCogs=filteredOrders.reduce((s,o)=>s+orderCost(o),0);
+  const lockerLogCogs=lockerSales.reduce((s,m)=>{const p=state.products.find(p=>p.id===m.productId);return s+(Number(m.qty)||0)*(Number(p?.cost)||0);},0);
+  const totalCogs=orderCogs+lockerLogCogs;
+  const totalOperatingExp=filteredExpenses.reduce((s,e)=>s+(Number(e.costSgd)||0),0);
+  const rentEntries=Object.entries(state.monthlyRent||{}).filter(([key])=>(year==='All'||key.slice(0,4)===year)&&(month==='All'||key.slice(5,7)===month));
+  const monthKey=(year!=='All'&&month!=='All')?`${year}-${month}`:'';
+  const totalRent=monthKey?(state.monthlyRent[monthKey]!==undefined?Number(state.monthlyRent[monthKey]):Number(state.locker.rent)||0):rentEntries.reduce((s,[,v])=>s+(Number(v)||0),0);
+  const filteredAdj=state.pnlAdjustments.filter(a=>matchesPeriod(a.date));
+  const totalPnlAdj=filteredAdj.reduce((s,a)=>s+(Number(a.amount)||0),0);
+  const netProfit=totalGrossRevenue-lockerFee-totalCogs-totalOperatingExp-totalRent+totalPnlAdj;
+  const pendingOrders=filteredOrders.filter(o=>o.payment==='Pending');
+  const outstanding=pendingOrders.reduce((s,o)=>s+orderValue(o),0);
+  const cashReceived=grossLockerLogs+filteredOrders.filter(o=>o.payment==='Paid').reduce((s,o)=>s+orderValue(o),0);
+  const allDates=[...state.orders,...state.expenses,...state.movements,...state.pnlAdjustments].map(x=>String(x.date||'')).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d));
+  const years=[...new Set([...allDates.map(d=>d.slice(0,4)),String(new Date().getFullYear())])].sort().reverse();
+  const latestDate=allDates.sort().at(-1)||new Date().toISOString().slice(0,10);
+  const latestYear=latestDate.slice(0,4),latestMonth=latestDate.slice(5,7);
+  const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const yearOptions=years.map(y=>`<option value="${y}" ${year===y?'selected':''}>${y}</option>`).join('');
+  const monthOptions=monthNames.map((name,i)=>{const value=String(i+1).padStart(2,'0');return `<option value="${value}" ${month===value?'selected':''}>${value} - ${name}</option>`;}).join('');
+  const invalidRecords=[...state.orders,...state.expenses,...state.movements].filter(x=>!/^\d{4}-\d{2}-\d{2}$/.test(String(x.date||''))).length;
+  const duplicateWarning=toyOrders.length&&lockerSales.length?`<div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--warn-bg);color:var(--warn);font-size:12px"><b>Check for duplicates:</b> this period contains Toy Outpost POs and Locker Sale logs. Both are included; do not enter the same sale in both places.</div>`:'';
+  const filterNote=(year!==latestYear||month!==latestMonth)&&year!=='All'&&month!=='All'?`<div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--lav-pale);font-size:12px">Latest activity is in <b>${latestYear}-${latestMonth}</b>. <button class="btn sm ghost" onclick="state.pnlYear='${latestYear}';state.pnlMonth='${latestMonth}';saveState();render();">Show Latest</button></div>`:'';
+  const mummyShare=Math.max(0,netProfit*.50),klarissaShare=Math.max(0,netProfit*.20),daddyShare=Math.max(0,netProfit*.20),khylerShare=Math.max(0,netProfit*.10);
+  const adjRows=filteredAdj.map(a=>`<tr><td>${a.date}</td><td>${esc(a.note)}</td><td class="num"><b>${a.amount>=0?'+$'+fmt(a.amount):'−$'+fmt(Math.abs(a.amount))}</b></td><td><button class="icon-btn" onclick="deletePnlAdjustment('${a.id}')">✕</button></td></tr>`).join('');
+  return `<div class="card"><h2>📊 P&amp;L Financial Dashboard</h2><p class="hint">Toy Outpost POs entered under Orders now flow into this dashboard automatically.</p><div class="row" style="max-width:760px;margin-bottom:14px"><div class="field"><label>Filter Year</label><select onchange="state.pnlYear=this.value;saveState();render();"><option value="All" ${year==='All'?'selected':''}>All Years</option>${yearOptions}</select></div><div class="field"><label>Filter Month</label><select onchange="state.pnlMonth=this.value;saveState();render();"><option value="All" ${month==='All'?'selected':''}>All Months</option>${monthOptions}</select></div>${monthKey?`<div class="field"><label>Monthly Locker Rent ($)</label><input type="number" value="${totalRent}" onchange="updateMonthlyRent('${monthKey}',this.value)"></div>`:`<div class="field"><label>Rent in Selected Period</label><input value="$${fmt(totalRent)}" readonly></div>`}</div>
+  <div class="summary-grid"><div class="stat"><div class="label">Gross Sales</div><div class="value">$${fmt(totalGrossRevenue)}</div></div><div class="stat"><div class="label">Cash Received</div><div class="value">$${fmt(cashReceived)}</div></div><div class="stat"><div class="label">Pending Payment</div><div class="value" style="color:var(--warn)">$${fmt(outstanding)}</div></div><div class="stat"><div class="label">Cost of Goods Sold</div><div class="value">−$${fmt(totalCogs)}</div></div><div class="stat"><div class="label">Toy Outpost Fee (${state.locker.feePct}%)</div><div class="value">−$${fmt(lockerFee)}</div></div><div class="stat"><div class="label">Operating Expenses</div><div class="value">−$${fmt(totalOperatingExp)}</div></div><div class="stat"><div class="label">Locker Rent</div><div class="value">−$${fmt(totalRent)}</div></div><div class="stat"><div class="label">Adjustments</div><div class="value">${totalPnlAdj>=0?'+$'+fmt(totalPnlAdj):'−$'+fmt(Math.abs(totalPnlAdj))}</div></div><div class="stat profit"><div class="label">Net Profit</div><div class="value ${netProfit>=0?'pos':'neg'}">${netProfit>=0?'$'+fmt(netProfit):'−$'+fmt(Math.abs(netProfit))}</div></div></div>${filterNote}${duplicateWarning}${invalidRecords?`<div class="msg" style="color:var(--danger)">⚠ ${invalidRecords} record(s) have an invalid or missing date and cannot be included.</div>`:''}</div>
+  <div class="card"><h2>🏪 Multi-Channel Sales Performance</h2><p class="hint">Counts unique POs rather than product lines. Toy Outpost includes POs plus any legacy Locker Sale logs.</p><div style="overflow-x:auto"><table><tr><th>Sales Channel</th><th class="num">Transactions</th><th class="num">Gross Sales</th><th class="num">Channel Fees</th><th class="num">After Channel Fees</th></tr><tr><td><b>Toy Outpost Suntec</b><div class="msg">${orderCount(toyOrders)} PO(s) + ${lockerSales.length} locker log(s)</div></td><td class="num">${orderCount(toyOrders)+lockerSales.length}</td><td class="num">$${fmt(grossToy)}</td><td class="num">−$${fmt(lockerFee)}</td><td class="num"><b>$${fmt(grossToy-lockerFee)}</b></td></tr><tr><td><b>Shopee Store</b></td><td class="num">${orderCount(shopeeOrders)}</td><td class="num">$${fmt(grossShopee)}</td><td class="num">−$${fmt(shopeeFeesTotal)}</td><td class="num"><b>$${fmt(grossShopee-shopeeFeesTotal)}</b></td></tr><tr><td><b>Direct / IG Sales</b></td><td class="num">${orderCount(directOrders)}</td><td class="num">$${fmt(grossDirect)}</td><td class="num">$0.00</td><td class="num"><b>$${fmt(grossDirect)}</b></td></tr><tr style="font-weight:bold;background:var(--bg-cream)"><td>TOTAL</td><td class="num">${orderCount(filteredOrders)+lockerSales.length}</td><td class="num">$${fmt(totalGrossRevenue)}</td><td class="num">−$${fmt(lockerFee+shopeeFeesTotal)}</td><td class="num">$${fmt(totalGrossRevenue-lockerFee-shopeeFeesTotal)}</td></tr></table></div></div>
+  <div class="card"><h2>✏️ Manual P&amp;L Adjustment / Correction</h2><p class="hint">Use only for one-off corrections; normal orders and expenses are included automatically.</p><div class="row"><div class="field"><label>Date</label><input id="pnl-adj-date" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field" style="flex:2"><label>Reason</label><input id="pnl-adj-note" placeholder="e.g. payout correction"></div><div class="field"><label>Amount ($)</label><input id="pnl-adj-amt" type="number" step="0.01" placeholder="+50 or -20"></div><button class="btn" onclick="addPnlAdjustment()">Add Adjustment</button></div>${adjRows?`<table style="margin-top:12px"><tr><th>Date</th><th>Note</th><th class="num">Amount</th><th></th></tr>${adjRows}</table>`:''}</div>
+  <div class="card"><h2>Profit Sharing Breakdown (AKSK)</h2><p class="hint">Calculated from net profit after product costs, fees, expenses and rent.</p><div class="summary-grid"><div class="stat"><div class="label">A (50%)</div><div class="value">$${fmt(mummyShare)}</div></div><div class="stat"><div class="label">K (20%)</div><div class="value">$${fmt(klarissaShare)}</div></div><div class="stat"><div class="label">S (20%)</div><div class="value">$${fmt(daddyShare)}</div></div><div class="stat"><div class="label">K (10%)</div><div class="value">$${fmt(khylerShare)}</div></div></div></div>`;
+}
 function renderPrintQueue(){  const cat = state.queueCategory;
   const activeProducts=state.products.filter(p=>!p.archived);  const needPrintAll = activeProducts.filter(p=>p.stockLocker < p.lowThreshold && p.stockHome < p.lowThreshold);  const needRestockAll = activeProducts.filter(p=>p.stockLocker < p.lowThreshold && p.stockHome >= p.lowThreshold);
   const needPrintList = needPrintAll.filter(p=> cat === 'All' || p.category === cat);  const needRestockList = needRestockAll.filter(p=> cat === 'All' || p.category === cat);
