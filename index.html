@@ -293,7 +293,7 @@ function confirmShopeeCSVImport(){
     order.items.forEach((item,index)=>{
       const product=matchShopeeProduct(item);if(!product)unmatched++;
       const total=item.lineTotal||item.unitPrice*item.qty;const itemFee=gross>0?order.fees*(total/gross):(index===0?order.fees:0);
-      state.orders.unshift({id:uid(),groupId,orderNo:order.orderNo,date:order.date,customer:order.customer||'Shopee Customer',channel:'Shopee',productId:product?product.id:'Shopee Imported Item',qty:item.qty,discPct:0,details:[product?'':item.productName,item.variation,item.sku?'SKU: '+item.sku:'','Imported from Shopee CSV'].filter(Boolean).join(' — '),unitPrice:item.qty?total/item.qty:item.unitPrice,totalPrice:total,shopeeFeeAmt:itemFee,shopeeShippingAmt:0,nettReceived:total-itemFee,payment:order.payment,status:order.orderStatus,stockLocation:null,imported:true,createdAt:importedAt});itemCount++;
+      state.orders.unshift({id:uid(),groupId,orderNo:order.orderNo,date:order.date,customer:order.customer||'Shopee Customer',channel:'Shopee',productId:product?product.id:'Shopee Imported Item',qty:item.qty,discPct:0,details:[product?'':item.productName,item.variation,item.sku?'SKU: '+item.sku:'','Imported from Shopee CSV'].filter(Boolean).join(' — '),unitPrice:item.qty?total/item.qty:item.unitPrice,totalPrice:total,shopeeShippingSubtotal:0,shopeeVoucherRebates:0,shopeeFeesCharges:-itemFee,estimatedOrderIncome:total-itemFee,shopeeFeeAmt:itemFee,shopeeShippingAmt:0,nettReceived:total-itemFee,payment:order.payment,status:order.orderStatus,stockLocation:null,imported:true,createdAt:importedAt});itemCount++;
     });
     if(order.fees>0&&!state.expenses.some(e=>e.id==='exp_shopee_'+order.orderNo))state.expenses.unshift({id:'exp_shopee_'+order.orderNo,date:order.date,category:'Platform Fees',item:'Shopee Fees ('+order.orderNo+')',vendor:'Shopee',curr:'SGD',rawCost:order.fees,costSgd:order.fees,createdAt:importedAt});
   });
@@ -309,13 +309,30 @@ function addPnlAdjustment(){  const date = document.getElementById('pnl-adj-date
   state.pnlAdjustments.unshift({ id: uid(), date, note, amount });  saveState(); render();}
 function deletePnlAdjustment(id){  if(!confirm('Delete this manual P&L adjustment?')) return;  state.pnlAdjustments = state.pnlAdjustments.filter(a=>a.id!==id);  saveState(); render();}
 // ---------- ORDERS & SHOPEE FEE LOGGING ----------
+function hasShopeeBreakdown(o){return ['shopeeShippingSubtotal','shopeeVoucherRebates','shopeeFeesCharges'].some(k=>o&&o[k]!==undefined);}
+function getShopeeOrderBreakdown(items){
+  const merchandise=items.reduce((s,o)=>s+(Number(o.totalPrice)||((Number(o.qty)||0)*(Number(o.unitPrice)||0))),0);
+  const modern=items.some(hasShopeeBreakdown);
+  const shipping=modern?items.reduce((s,o)=>s+(Number(o.shopeeShippingSubtotal)||0),0):-items.reduce((s,o)=>s+(Number(o.shopeeShippingAmt)||0),0);
+  const vouchers=modern?items.reduce((s,o)=>s+(Number(o.shopeeVoucherRebates)||0),0):0;
+  const fees=modern?items.reduce((s,o)=>s+(Number(o.shopeeFeesCharges)||0),0):-items.reduce((s,o)=>s+(Number(o.shopeeFeeAmt)||0),0);
+  return {merchandise,shipping,vouchers,fees,income:merchandise+shipping+vouchers+fees,deductions:Math.max(0,-(shipping+vouchers+fees))};
+}
+function orderShopeeDeductions(o){return hasShopeeBreakdown(o)?Math.max(0,-((Number(o.shopeeShippingSubtotal)||0)+(Number(o.shopeeVoucherRebates)||0)+(Number(o.shopeeFeesCharges)||0))):(Number(o.shopeeFeeAmt)||0)+(Number(o.shopeeShippingAmt)||0);}
+function signedMoney(value){const n=Number(value)||0;return `${n<0?'−':n>0?'+':''}$${fmt(Math.abs(n))}`;}
 function autoFillOrderPrice(){  const pid = document.getElementById('ord-product').value;  const channel = document.getElementById('ord-channel').value;  const discPct = parseFloat(document.getElementById('ord-disc').value) || 0;  const p = state.products.find(p=>p.id===pid);  if(!p) return;
   let origPrice = p.priceDirect;  if(channel==='Shopee') origPrice = p.priceShopee;  if(channel==='Toy Outpost') origPrice = p.priceToy;
   const discountedPrice = origPrice * (1 - (discPct / 100));  document.getElementById('ord-price').value = fmt(discountedPrice);
-  const shopeeBox = document.getElementById('shopee-fee-box');  if(shopeeBox){    shopeeBox.style.display = (channel === 'Shopee') ? 'flex' : 'none';  }  calculateShopeeNetPayout();}
-function calculateShopeeNetPayout(){  const feeAmt = parseFloat(document.getElementById('ord-shopee-feeamt')?.value) || 0;  const shopeeShipping = parseFloat(document.getElementById('ord-shopee-shipping')?.value) || 0;
-  const grossTotal = state.orderDraft.reduce((sum,i)=>sum+i.qty*i.unitPrice,0);  const netPayout = grossTotal - feeAmt - shopeeShipping;
-  const netEl = document.getElementById('ord-shopee-netpayout');  if(netEl){    netEl.value = fmt(netPayout);  }}
+  const shopeeBox = document.getElementById('shopee-fee-box');  if(shopeeBox){    shopeeBox.style.display = (channel === 'Shopee') ? 'block' : 'none';  }  calculateShopeeNetPayout();}
+function calculateShopeeNetPayout(){
+  const shipping=parseFloat(document.getElementById('ord-shopee-shipping-subtotal')?.value)||0;
+  const vouchers=parseFloat(document.getElementById('ord-shopee-vouchers')?.value)||0;
+  const fees=parseFloat(document.getElementById('ord-shopee-fees')?.value)||0;
+  const merchandise=state.orderDraft.reduce((sum,i)=>sum+i.qty*i.unitPrice,0);
+  const merchandiseEl=document.getElementById('ord-shopee-merchandise'),incomeEl=document.getElementById('ord-shopee-income');
+  if(merchandiseEl)merchandiseEl.value=fmt(merchandise);
+  if(incomeEl)incomeEl.value=fmt(merchandise+shipping+vouchers+fees);
+}
 function setOrderCategory(category){ captureOrderHeaderDraft(); state.orderCategory=category; saveState(); render(); autoFillOrderPrice(); }
 function changeOrderChannel(){
   const channel=document.getElementById('ord-channel')?.value||'Direct / IG';
@@ -335,8 +352,9 @@ function captureOrderHeaderDraft(){
     customer: document.getElementById('ord-customer')?.value || '',
     payment: document.getElementById('ord-pay')?.value || 'Paid',
     status: document.getElementById('ord-status')?.value || 'Pending Print',
-    shopeeFeeAmt: parseFloat(document.getElementById('ord-shopee-feeamt')?.value) || 0,
-    shopeeShipping: parseFloat(document.getElementById('ord-shopee-shipping')?.value) || 0
+    shopeeShippingSubtotal: parseFloat(document.getElementById('ord-shopee-shipping-subtotal')?.value) || 0,
+    shopeeVoucherRebates: parseFloat(document.getElementById('ord-shopee-vouchers')?.value) || 0,
+    shopeeFeesCharges: parseFloat(document.getElementById('ord-shopee-fees')?.value) || 0
   };
 }
 function addOrderItem(){
@@ -367,24 +385,27 @@ function addOrder(){
   if(state.orders.some(o=>o.orderNo===orderNo)){ alert('This PO number already exists. Generate a new PO number.'); return; }
   const groupId=uid();
   const gross=state.orderDraft.reduce((sum,i)=>sum+i.qty*i.unitPrice,0);
-  const feeAmt=h.channel==='Shopee' ? (Number(h.shopeeFeeAmt)||0) : 0;
-  const shipping=h.channel==='Shopee' ? h.shopeeShipping : 0;
+  const shipping=h.channel==='Shopee'?(Number(h.shopeeShippingSubtotal)||0):0;
+  const vouchers=h.channel==='Shopee'?(Number(h.shopeeVoucherRebates)||0):0;
+  const fees=h.channel==='Shopee'?(Number(h.shopeeFeesCharges)||0):0;
   state.orderDraft.forEach((i,index)=>{
     const p=state.products.find(p=>p.id===i.productId);
     const stockLocation=orderStockLocation(h.channel);
     adjustOrderStock(p,stockLocation,-i.qty);
-    const itemFee=gross>0 ? feeAmt*((i.qty*i.unitPrice)/gross) : 0;
-    const itemShipping=index===0 ? shipping : 0;
+    const ratio=gross>0?((i.qty*i.unitPrice)/gross):(index===0?1:0);
+    const itemShipping=shipping*ratio,itemVouchers=vouchers*ratio,itemFees=fees*ratio;
     state.orders.unshift({
       id:uid(),groupId,orderNo,date:h.date,customer:h.customer||h.channel,channel:h.channel,
       productId:i.productId,qty:i.qty,discPct:i.discPct,details:i.details,unitPrice:i.unitPrice,
-      totalPrice:i.qty*i.unitPrice,shopeeFeeAmt:itemFee,shopeeShippingAmt:itemShipping,
-      nettReceived:i.qty*i.unitPrice-itemFee-itemShipping,payment:h.payment,status:h.status,stockLocation,createdAt:new Date().toISOString()
+      totalPrice:i.qty*i.unitPrice,shopeeShippingSubtotal:itemShipping,shopeeVoucherRebates:itemVouchers,shopeeFeesCharges:itemFees,
+      estimatedOrderIncome:i.qty*i.unitPrice+itemShipping+itemVouchers+itemFees,shopeeFeeAmt:Math.max(0,-(itemVouchers+itemFees)),shopeeShippingAmt:Math.max(0,-itemShipping),
+      nettReceived:i.qty*i.unitPrice+itemShipping+itemVouchers+itemFees,payment:h.payment,status:h.status,stockLocation,createdAt:new Date().toISOString()
     });
   });
-  if(h.channel==='Shopee' && feeAmt+shipping>0) state.expenses.unshift({
-    id:'exp_shopee_'+orderNo,date:h.date,category:'Platform Fees',item:'Shopee Platform & Shipping Fees ('+orderNo+')',
-    vendor:'Shopee',curr:'SGD',rawCost:feeAmt+shipping,costSgd:feeAmt+shipping,createdAt:new Date().toISOString()
+  const deductions=Math.max(0,-(shipping+vouchers+fees));
+  if(h.channel==='Shopee' && deductions>0) state.expenses.unshift({
+    id:'exp_shopee_'+orderNo,date:h.date,category:'Platform Fees',item:'Shopee Deductions ('+orderNo+')',
+    vendor:'Shopee',curr:'SGD',rawCost:deductions,costSgd:deductions,createdAt:new Date().toISOString()
   });
   state.orderDraft=[]; state.orderHeaderDraft={}; saveState(); render(); alert('PO '+orderNo+' saved with all items.');
 }
@@ -416,8 +437,9 @@ function savePurchaseOrderEdits(originalOrderNo){
   const channel=document.getElementById('edit-order-channel')?.value||first.channel;
   const payment=document.getElementById('edit-order-payment')?.value||first.payment;
   const status=document.getElementById('edit-order-status')?.value||first.status;
-  const feeAmt=channel==='Shopee'?Math.max(0,parseFloat(document.getElementById('edit-order-fee')?.value)||0):0;
-  const shipping=channel==='Shopee'?Math.max(0,parseFloat(document.getElementById('edit-order-shipping')?.value)||0):0;
+  const shipping=channel==='Shopee'?(parseFloat(document.getElementById('edit-order-shipping-subtotal')?.value)||0):0;
+  const vouchers=channel==='Shopee'?(parseFloat(document.getElementById('edit-order-vouchers')?.value)||0):0;
+  const fees=channel==='Shopee'?(parseFloat(document.getElementById('edit-order-fees')?.value)||0):0;
   const edits=items.map(o=>({order:o,qty:Math.max(1,parseInt(document.getElementById('edit-order-qty-'+o.id)?.value)||1),unitPrice:Math.max(0,parseFloat(document.getElementById('edit-order-price-'+o.id)?.value)||0),details:document.getElementById('edit-order-details-'+o.id)?.value.trim()||''}));
   items.forEach(o=>{const p=state.products.find(p=>p.id===o.productId);const location=o.stockLocation||(o.channel==='Toy Outpost'?null:'stockHome');adjustOrderStock(p,location,Number(o.qty)||0);});
   const gross=edits.reduce((sum,e)=>sum+e.qty*e.unitPrice,0);
@@ -426,12 +448,13 @@ function savePurchaseOrderEdits(originalOrderNo){
     const stockLocation=orderStockLocation(channel);
     adjustOrderStock(p,stockLocation,-e.qty);
     const itemTotal=e.qty*e.unitPrice;
-    const itemFee=gross>0?feeAmt*(itemTotal/gross):0;
-    const itemShipping=index===0?shipping:0;
-    Object.assign(o,{orderNo:newOrderNo,date,customer,channel,payment,status,qty:e.qty,unitPrice:e.unitPrice,details:e.details,totalPrice:itemTotal,shopeeFeeAmt:itemFee,shopeeShippingAmt:itemShipping,nettReceived:itemTotal-itemFee-itemShipping,stockLocation,updatedAt:new Date().toISOString()});
+    const ratio=gross>0?(itemTotal/gross):(index===0?1:0);
+    const itemShipping=shipping*ratio,itemVouchers=vouchers*ratio,itemFees=fees*ratio;
+    Object.assign(o,{orderNo:newOrderNo,date,customer,channel,payment,status,qty:e.qty,unitPrice:e.unitPrice,details:e.details,totalPrice:itemTotal,shopeeShippingSubtotal:itemShipping,shopeeVoucherRebates:itemVouchers,shopeeFeesCharges:itemFees,estimatedOrderIncome:itemTotal+itemShipping+itemVouchers+itemFees,shopeeFeeAmt:Math.max(0,-(itemVouchers+itemFees)),shopeeShippingAmt:Math.max(0,-itemShipping),nettReceived:itemTotal+itemShipping+itemVouchers+itemFees,stockLocation,updatedAt:new Date().toISOString()});
   });
   state.expenses=state.expenses.filter(e=>e.id!=='exp_shopee_'+originalOrderNo && e.id!=='exp_shopee_'+newOrderNo);
-  if(channel==='Shopee' && feeAmt+shipping>0)state.expenses.unshift({id:'exp_shopee_'+newOrderNo,date,category:'Platform Fees',item:'Shopee Platform & Shipping Fees ('+newOrderNo+')',vendor:'Shopee',curr:'SGD',rawCost:feeAmt+shipping,costSgd:feeAmt+shipping,createdAt:new Date().toISOString()});
+  const deductions=Math.max(0,-(shipping+vouchers+fees));
+  if(channel==='Shopee' && deductions>0)state.expenses.unshift({id:'exp_shopee_'+newOrderNo,date,category:'Platform Fees',item:'Shopee Deductions ('+newOrderNo+')',vendor:'Shopee',curr:'SGD',rawCost:deductions,costSgd:deductions,createdAt:new Date().toISOString()});
   state.editingOrderNo=''; saveState(); render(); alert('PO '+newOrderNo+' updated.');
 }
 function deleteOrder(id){  if(!confirm('Delete this order entry?')) return;  const o = state.orders.find(ord=>ord.id===id);  if(o && o.orderNo){    state.expenses = state.expenses.filter(e => e.id !== `exp_shopee_${o.orderNo}`);  }  state.orders = state.orders.filter(o=>o.id!==id);  saveState(); render();}
@@ -463,9 +486,8 @@ function renderUpdateTracker(){
   const shopeeGroups={};shopeeItems.forEach(o=>(shopeeGroups[o.orderNo]||(shopeeGroups[o.orderNo]=[])).push(o));
   const shopeePOs=Object.values(shopeeGroups).map(items=>{
     const first=items[0];
-    const gross=items.reduce((sum,o)=>sum+(Number(o.totalPrice)||((Number(o.qty)||0)*(Number(o.unitPrice)||0))),0);
-    const fees=items.reduce((sum,o)=>sum+(Number(o.shopeeFeeAmt)||0)+(Number(o.shopeeShippingAmt)||0),0);
-    return {orderNo:first.orderNo,date:first.date,payment:first.payment||'Pending',status:first.status||'',gross,fees};
+    const breakdown=getShopeeOrderBreakdown(items);
+    return {orderNo:first.orderNo,date:first.date,payment:first.payment||'Pending',status:first.status||'',gross:breakdown.merchandise,fees:breakdown.deductions,income:breakdown.income};
   }).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const now=new Date(),currentKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   const monthShopee=shopeePOs.filter(o=>String(o.date||'').slice(0,7)===currentKey);
@@ -503,6 +525,7 @@ function renderSummary(){
   const year=state.pnlYear,month=state.pnlMonth;
   const matchesPeriod=date=>{const d=String(date||'');return /^\d{4}-\d{2}-\d{2}$/.test(d)&&(year==='All'||d.slice(0,4)===year)&&(month==='All'||d.slice(5,7)===month);};
   const orderValue=o=>Number(o.totalPrice)||((Number(o.qty)||0)*(Number(o.unitPrice)||0));
+  const orderCashValue=o=>(o.channel==='Shopee'||String(o.orderNo||'').startsWith('SHP'))?(hasShopeeBreakdown(o)?orderValue(o)+(Number(o.shopeeShippingSubtotal)||0)+(Number(o.shopeeVoucherRebates)||0)+(Number(o.shopeeFeesCharges)||0):orderValue(o)-orderShopeeDeductions(o)):orderValue(o);
   const orderCount=items=>new Set(items.map(o=>o.orderNo||o.groupId||o.id)).size;
   const filteredOrders=state.orders.filter(o=>o.payment!=='Gift'&&matchesPeriod(o.date));
   const filteredExpenses=state.expenses.filter(e=>matchesPeriod(e.date));
@@ -515,7 +538,7 @@ function renderSummary(){
   const grossToy=grossToyOrders+grossLockerLogs;
   const lockerFee=grossToy*(Number(state.locker.feePct)||0)/100;
   const grossShopee=shopeeOrders.reduce((s,o)=>s+orderValue(o),0);
-  const shopeeFeesTotal=shopeeOrders.reduce((s,o)=>s+(Number(o.shopeeFeeAmt)||0)+(Number(o.shopeeShippingAmt)||0),0);
+  const shopeeFeesTotal=shopeeOrders.reduce((s,o)=>s+orderShopeeDeductions(o),0);
   const grossDirect=directOrders.reduce((s,o)=>s+orderValue(o),0);
   const totalGrossRevenue=grossToy+grossShopee+grossDirect;
   const totalOperatingExp=filteredExpenses.reduce((s,e)=>s+(Number(e.costSgd)||0),0);
@@ -526,8 +549,8 @@ function renderSummary(){
   const totalPnlAdj=filteredAdj.reduce((s,a)=>s+(Number(a.amount)||0),0);
   const netProfit=totalGrossRevenue-lockerFee-totalOperatingExp-totalRent+totalPnlAdj;
   const pendingOrders=filteredOrders.filter(o=>o.payment==='Pending');
-  const outstanding=pendingOrders.reduce((s,o)=>s+orderValue(o),0);
-  const cashReceived=grossLockerLogs+filteredOrders.filter(o=>o.payment==='Paid').reduce((s,o)=>s+orderValue(o),0);
+  const outstanding=pendingOrders.reduce((s,o)=>s+orderCashValue(o),0);
+  const cashReceived=grossLockerLogs+filteredOrders.filter(o=>o.payment==='Paid').reduce((s,o)=>s+orderCashValue(o),0);
   const allDates=[...state.orders,...state.expenses,...state.movements,...state.pnlAdjustments].map(x=>String(x.date||'')).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d));
   const years=[...new Set([...allDates.map(d=>d.slice(0,4)),String(new Date().getFullYear())])].sort().reverse();
   const latestDate=allDates.sort().at(-1)||new Date().toISOString().slice(0,10);
@@ -575,11 +598,17 @@ function renderInventory(){  const q = (state.searchQuery || '').toLowerCase().t
 function renderPurchaseOrderEditor(items){
   if(!items.length)return '';
   const first=items[0];
-  const fee=items.reduce((sum,o)=>sum+(Number(o.shopeeFeeAmt)||0),0);
-  const shipping=items.reduce((sum,o)=>sum+(Number(o.shopeeShippingAmt)||0),0);
+  const breakdown=getShopeeOrderBreakdown(items);
   const safeOrderNo=String(first.orderNo).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-  const itemRows=items.map(o=>{const p=state.products.find(p=>p.id===o.productId);return `<tr><td><b>${p?esc(p.name):esc(o.productId)}</b></td><td><input id="edit-order-details-${o.id}" class="tbl-input" value="${esc(o.details||'')}" placeholder="Name, colour or variation"></td><td class="num"><input id="edit-order-qty-${o.id}" class="tbl-input num-in" type="number" min="1" value="${o.qty}"></td><td class="num"><input id="edit-order-price-${o.id}" class="tbl-input num-in" type="number" min="0" step="0.01" value="${o.unitPrice}"></td></tr>`;}).join('');
-  return `<div class="card" style="border:2px solid var(--lav)"><h2>✏️ Edit PO ${esc(first.orderNo)}</h2><p class="hint">Correct the order information below. Saving will also recalculate stock, Shopee fees and P&amp;L.</p><div class="row"><div class="field"><label>PO Number</label><input id="edit-order-no" value="${esc(first.orderNo)}"></div><div class="field"><label>Date</label><input id="edit-order-date" type="date" value="${first.date}"></div><div class="field" style="flex:2"><label>Customer</label><input id="edit-order-customer" value="${esc(first.customer||'')}"></div><div class="field"><label>Channel</label><select id="edit-order-channel"><option ${first.channel==='Direct / IG'?'selected':''}>Direct / IG</option><option ${first.channel==='Shopee'?'selected':''}>Shopee</option><option ${first.channel==='Toy Outpost'?'selected':''}>Toy Outpost</option></select></div><div class="field"><label>Payment</label><select id="edit-order-payment"><option ${first.payment==='Pending'?'selected':''}>Pending</option><option ${first.payment==='Paid'?'selected':''}>Paid</option><option ${first.payment==='Gift'?'selected':''}>Gift</option></select></div><div class="field"><label>Order Status</label><select id="edit-order-status"><option ${first.status==='Pending Print'?'selected':''}>Pending Print</option><option ${first.status==='Printed'?'selected':''}>Printed</option><option ${first.status==='Delivered'?'selected':''}>Delivered</option></select></div></div><div style="overflow-x:auto;margin-top:14px"><table><tr><th>Product</th><th>Details</th><th class="num">Qty</th><th class="num">Price / Item</th></tr>${itemRows}</table></div><div class="row" style="margin-top:14px"><div class="field"><label>Shopee Fee ($)</label><input id="edit-order-fee" type="number" min="0" step="0.01" value="${fmt(fee)}"></div><div class="field"><label>Shipping Charged to You ($)</label><input id="edit-order-shipping" type="number" min="0" step="0.01" value="${fmt(shipping)}"></div><div style="flex:2"></div><button class="btn" onclick="savePurchaseOrderEdits('${safeOrderNo}')">Save Changes</button><button class="btn ghost" onclick="cancelEditPurchaseOrder()">Cancel</button></div></div>`;
+  const itemRows=items.map(o=>{const p=state.products.find(p=>p.id===o.productId);return `<tr><td><b>${p?esc(p.name):esc(o.productId)}</b></td><td><input id="edit-order-details-${o.id}" class="tbl-input" value="${esc(o.details||'')}" placeholder="Name, colour or variation"></td><td class="num"><input id="edit-order-qty-${o.id}" class="tbl-input num-in" type="number" min="1" value="${o.qty}" oninput="calculateEditedShopeeIncome()"></td><td class="num"><input id="edit-order-price-${o.id}" class="tbl-input num-in" type="number" min="0" step="0.01" value="${o.unitPrice}" oninput="calculateEditedShopeeIncome()"></td></tr>`;}).join('');
+  const shopeeFields=first.channel==='Shopee'?`<div style="margin-top:14px;padding:12px;background:var(--bg-cream);border-radius:12px"><p class="hint" style="margin-top:0">Enter Shopee amounts exactly as shown. Keep the minus sign for deductions.</p><div class="row"><div class="field"><label>Merchandise Subtotal</label><input id="edit-order-merchandise" value="${fmt(breakdown.merchandise)}" readonly></div><div class="field"><label>Estimated Shipping Subtotal</label><input id="edit-order-shipping-subtotal" type="number" step="0.01" value="${breakdown.shipping}" oninput="calculateEditedShopeeIncome()"></div><div class="field"><label>Vouchers &amp; Rebates</label><input id="edit-order-vouchers" type="number" step="0.01" value="${breakdown.vouchers}" oninput="calculateEditedShopeeIncome()"></div><div class="field"><label>Fees &amp; Charges</label><input id="edit-order-fees" type="number" step="0.01" value="${breakdown.fees}" oninput="calculateEditedShopeeIncome()"></div><div class="field"><label>Estimated Order Income</label><input id="edit-order-income" value="${fmt(breakdown.income)}" readonly style="font-weight:bold"></div></div></div>`:'';
+  return `<div class="card" style="border:2px solid var(--lav)"><h2>✏️ Edit PO ${esc(first.orderNo)}</h2><p class="hint">Correct the order information below. Saving will also recalculate stock, Shopee deductions and P&amp;L.</p><div class="row"><div class="field"><label>PO Number</label><input id="edit-order-no" value="${esc(first.orderNo)}"></div><div class="field"><label>Date</label><input id="edit-order-date" type="date" value="${first.date}"></div><div class="field" style="flex:2"><label>Customer</label><input id="edit-order-customer" value="${esc(first.customer||'')}"></div><div class="field"><label>Channel</label><select id="edit-order-channel"><option ${first.channel==='Direct / IG'?'selected':''}>Direct / IG</option><option ${first.channel==='Shopee'?'selected':''}>Shopee</option><option ${first.channel==='Toy Outpost'?'selected':''}>Toy Outpost</option></select></div><div class="field"><label>Payment</label><select id="edit-order-payment"><option ${first.payment==='Pending'?'selected':''}>Pending</option><option ${first.payment==='Paid'?'selected':''}>Paid</option><option ${first.payment==='Gift'?'selected':''}>Gift</option></select></div><div class="field"><label>Order Status</label><select id="edit-order-status"><option ${first.status==='Pending Print'?'selected':''}>Pending Print</option><option ${first.status==='Printed'?'selected':''}>Printed</option><option ${first.status==='Delivered'?'selected':''}>Delivered</option></select></div></div><div style="overflow-x:auto;margin-top:14px"><table><tr><th>Product</th><th>Details</th><th class="num">Qty</th><th class="num">Price / Item</th></tr>${itemRows}</table></div>${shopeeFields}<div class="row" style="margin-top:14px"><div style="flex:2"></div><button class="btn" onclick="savePurchaseOrderEdits('${safeOrderNo}')">Save Changes</button><button class="btn ghost" onclick="cancelEditPurchaseOrder()">Cancel</button></div></div>`;
+}
+function calculateEditedShopeeIncome(){
+  const editor=document.getElementById('edit-order-income');if(!editor)return;
+  let merchandise=0;state.orders.filter(o=>o.orderNo===state.editingOrderNo).forEach(o=>{const qty=parseFloat(document.getElementById('edit-order-qty-'+o.id)?.value)||0;const price=parseFloat(document.getElementById('edit-order-price-'+o.id)?.value)||0;merchandise+=qty*price;});
+  const shipping=parseFloat(document.getElementById('edit-order-shipping-subtotal')?.value)||0,vouchers=parseFloat(document.getElementById('edit-order-vouchers')?.value)||0,fees=parseFloat(document.getElementById('edit-order-fees')?.value)||0;
+  const merchandiseEl=document.getElementById('edit-order-merchandise');if(merchandiseEl)merchandiseEl.value=fmt(merchandise);editor.value=fmt(merchandise+shipping+vouchers+fees);
 }
 function renderOrders(){
   const h=state.orderHeaderDraft||{};
@@ -594,13 +623,16 @@ function renderOrders(){
   const prodOptions=productsInCategory.map(p=>`<option value="${p.id}">${esc(p.name)} — Home: ${p.stockHome}</option>`).join('');
   const draftRows=state.orderDraft.map(i=>{const p=state.products.find(p=>p.id===i.productId);return `<tr><td>${p?esc(p.name):esc(i.productId)}</td><td>${esc(i.details||'—')}</td><td class="num">${i.qty}</td><td class="num">$${fmt(i.unitPrice)}</td><td class="num"><b>$${fmt(i.qty*i.unitPrice)}</b></td><td><button class="icon-btn" onclick="removeOrderItem('${i.id}')">✕</button></td></tr>`;}).join('');
   const draftTotal=state.orderDraft.reduce((s,i)=>s+i.qty*i.unitPrice,0);
+  const draftShipping=h.shopeeShippingSubtotal!==undefined?(Number(h.shopeeShippingSubtotal)||0):-(Number(h.shopeeShipping)||0);
+  const draftVouchers=Number(h.shopeeVoucherRebates)||0;
+  const draftFees=h.shopeeFeesCharges!==undefined?(Number(h.shopeeFeesCharges)||0):-(Number(h.shopeeFeeAmt)||0);
   const groups={}; state.orders.forEach(o=>(groups[o.orderNo]||(groups[o.orderNo]=[])).push(o));
-  const history=Object.values(groups).map(items=>{const first=items[0];const safe=String(first.orderNo).replace(/\\/g,'\\\\').replace(/'/g,"\\'");const total=items.reduce((s,o)=>s+(o.totalPrice||o.qty*o.unitPrice),0);const fees=items.reduce((s,o)=>s+(o.shopeeFeeAmt||0)+(o.shopeeShippingAmt||0),0);const detail=items.map(o=>{const p=state.products.find(p=>p.id===o.productId);return `<div><b>${o.qty}×</b> ${p?esc(p.name):esc(o.productId)}${o.details?` — ${esc(o.details)}`:''}</div>`;}).join('');return `<tr><td><b>${esc(first.orderNo)}</b><br><span class="msg">${first.date}</span></td><td><b>${esc(first.customer||first.channel)}</b><div class="msg">${esc(first.channel||'Direct')}</div></td><td>${detail}</td><td class="num">${items.reduce((s,o)=>s+(Number(o.qty)||0),0)}</td><td class="num"><b>$${fmt(total)}</b>${fees?`<div class="msg" style="color:var(--danger)">Fees: −$${fmt(fees)}</div>`:''}</td><td><select class="tbl-input" aria-label="Payment for ${esc(first.orderNo)}" onchange="updatePurchaseOrderGroupField('${safe}','payment',this.value)"><option ${first.payment==='Pending'?'selected':''}>Pending</option><option ${first.payment==='Paid'?'selected':''}>Paid</option><option ${first.payment==='Gift'?'selected':''}>Gift</option></select></td><td><select class="tbl-input" aria-label="Status for ${esc(first.orderNo)}" onchange="updatePurchaseOrderGroupField('${safe}','status',this.value)"><option ${first.status==='Pending Print'?'selected':''}>Pending Print</option><option ${first.status==='Printed'?'selected':''}>Printed</option><option ${first.status==='Delivered'?'selected':''}>Delivered</option></select></td><td style="white-space:nowrap"><button class="btn sm ghost" onclick="startEditPurchaseOrder('${safe}')">Edit</button> <button class="icon-btn" aria-label="Delete ${esc(first.orderNo)}" onclick="deletePurchaseOrder('${safe}')">✕</button></td></tr>`;}).join('');
+  const history=Object.values(groups).map(items=>{const first=items[0];const safe=String(first.orderNo).replace(/\\/g,'\\\\').replace(/'/g,"\\'");const breakdown=getShopeeOrderBreakdown(items);const isShopee=first.channel==='Shopee'||String(first.orderNo||'').startsWith('SHP');const detail=items.map(o=>{const p=state.products.find(p=>p.id===o.productId);return `<div><b>${o.qty}×</b> ${p?esc(p.name):esc(o.productId)}${o.details?` — ${esc(o.details)}`:''}</div>`;}).join('');const totalDisplay=isShopee?`<div class="msg" style="line-height:1.55;text-align:left"><div>Merchandise Subtotal: <b>$${fmt(breakdown.merchandise)}</b></div><div>Estimated Shipping Subtotal: ${signedMoney(breakdown.shipping)}</div><div>Vouchers &amp; Rebates: ${signedMoney(breakdown.vouchers)}</div><div>Fees &amp; Charges: ${signedMoney(breakdown.fees)}</div><div style="border-top:1px solid var(--border);margin-top:3px;padding-top:3px"><b>Estimated Order Income: $${fmt(breakdown.income)}</b></div></div>`:`<b>$${fmt(breakdown.merchandise)}</b>`;return `<tr><td><b>${esc(first.orderNo)}</b><br><span class="msg">${first.date}</span></td><td><b>${esc(first.customer||first.channel)}</b><div class="msg">${esc(first.channel||'Direct')}</div></td><td>${detail}</td><td class="num">${items.reduce((s,o)=>s+(Number(o.qty)||0),0)}</td><td class="num">${totalDisplay}</td><td><select class="tbl-input" aria-label="Payment for ${esc(first.orderNo)}" onchange="updatePurchaseOrderGroupField('${safe}','payment',this.value)"><option ${first.payment==='Pending'?'selected':''}>Pending</option><option ${first.payment==='Paid'?'selected':''}>Paid</option><option ${first.payment==='Gift'?'selected':''}>Gift</option></select></td><td><select class="tbl-input" aria-label="Status for ${esc(first.orderNo)}" onchange="updatePurchaseOrderGroupField('${safe}','status',this.value)"><option ${first.status==='Pending Print'?'selected':''}>Pending Print</option><option ${first.status==='Printed'?'selected':''}>Printed</option><option ${first.status==='Delivered'?'selected':''}>Delivered</option></select></td><td style="white-space:nowrap"><button class="btn sm ghost" onclick="startEditPurchaseOrder('${safe}')">Edit</button> <button class="icon-btn" aria-label="Delete ${esc(first.orderNo)}" onclick="deletePurchaseOrder('${safe}')">✕</button></td></tr>`;}).join('');
   const editor=renderPurchaseOrderEditor(state.orders.filter(o=>o.orderNo===state.editingOrderNo));
   return `<div class="card"><h2>Create One PO with Multiple Items</h2><p class="hint">Enter the customer once, add every product below, then save one PO.</p>
   <div class="row"><div class="field"><label>Date</label><input id="ord-date" type="date" value="${h.date||new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Channel</label><select id="ord-channel" onchange="changeOrderChannel()"><option ${h.channel==='Direct / IG'?'selected':''}>Direct / IG</option><option ${h.channel==='Shopee'?'selected':''}>Shopee</option><option ${h.channel==='Toy Outpost'?'selected':''}>Toy Outpost</option></select></div><div class="field"><label>PO Number</label><input id="ord-no-preview" value="${esc(defaultOrderNo)}"></div><div class="field"><label>Customer</label><input id="ord-customer" value="${esc(h.customer||'')}" placeholder="Customer name"></div><div class="field"><label>Payment</label><select id="ord-pay"><option ${h.payment==='Paid'?'selected':''}>Paid</option><option ${h.payment==='Pending'?'selected':''}>Pending</option></select></div><div class="field"><label>Status</label><select id="ord-status"><option ${h.status==='Pending Print'?'selected':''}>Pending Print</option><option ${h.status==='Printed'?'selected':''}>Printed</option><option ${h.status==='Delivered'?'selected':''}>Delivered</option></select></div></div>
   <div class="row" style="margin-top:12px;padding:12px;background:var(--bg-cream);border-radius:12px"><div class="field"><label>1. Category</label><select id="ord-category" onchange="setOrderCategory(this.value)">${categoryOptions}</select></div><div class="field" style="flex:2"><label>2. Product</label><select id="ord-product" onchange="autoFillOrderPrice()" ${productsInCategory.length?'':'disabled'}>${prodOptions}</select></div><div class="field"><label>Qty</label><input id="ord-qty" type="number" min="1" value="1"></div><div class="field"><label>Discount %</label><input id="ord-disc" type="number" min="0" max="100" value="0" onchange="autoFillOrderPrice()"></div><div class="field"><label>Price / Item</label><input id="ord-price" type="number" step="0.01" placeholder="Auto"></div><div class="field" style="flex:2"><label>Details</label><input id="ord-details" placeholder="Animal, colour, name or variation"></div><button class="btn" onclick="addOrderItem()" ${productsInCategory.length?'':'disabled'}>+ Add Item</button></div>
-  <div id="shopee-fee-box" class="row" style="margin-top:10px;${h.channel==='Shopee'?'':'display:none'}"><div class="field"><label>Shopee Fee ($)</label><input id="ord-shopee-feeamt" type="number" min="0" step="0.01" value="${h.shopeeFeeAmt||0}" oninput="calculateShopeeNetPayout()"></div><div class="field"><label>Shipping Charged to You ($)</label><input id="ord-shopee-shipping" type="number" min="0" step="0.01" value="${h.shopeeShipping||0}" oninput="calculateShopeeNetPayout()"></div><div class="field"><label>Estimated Net Payout ($)</label><input id="ord-shopee-netpayout" value="${fmt(draftTotal-(Number(h.shopeeFeeAmt)||0)-(Number(h.shopeeShipping)||0))}" readonly></div></div>
+  <div id="shopee-fee-box" style="margin-top:10px;padding:12px;background:var(--bg-cream);border-radius:12px;${h.channel==='Shopee'?'':'display:none'}"><p class="hint" style="margin-top:0"><b>Shopee payout breakdown:</b> enter the figures exactly as Shopee shows them, including the minus sign for deductions.</p><div class="row"><div class="field"><label>Merchandise Subtotal</label><input id="ord-shopee-merchandise" value="${fmt(draftTotal)}" readonly></div><div class="field"><label>Estimated Shipping Subtotal</label><input id="ord-shopee-shipping-subtotal" type="number" step="0.01" value="${draftShipping}" placeholder="-2.30" oninput="calculateShopeeNetPayout()"></div><div class="field"><label>Vouchers &amp; Rebates</label><input id="ord-shopee-vouchers" type="number" step="0.01" value="${draftVouchers}" placeholder="-3.56" oninput="calculateShopeeNetPayout()"></div><div class="field"><label>Fees &amp; Charges</label><input id="ord-shopee-fees" type="number" step="0.01" value="${draftFees}" placeholder="-3.39" oninput="calculateShopeeNetPayout()"></div><div class="field"><label>Estimated Order Income</label><input id="ord-shopee-income" value="${fmt(draftTotal+draftShipping+draftVouchers+draftFees)}" readonly style="font-weight:bold"></div></div></div>
   ${state.orderDraft.length?`<div style="overflow-x:auto;margin-top:14px"><table><tr><th>Item</th><th>Details</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Subtotal</th><th></th></tr>${draftRows}<tr><td colspan="4"><b>PO Total</b></td><td class="num"><b>$${fmt(draftTotal)}</b></td><td></td></tr></table></div>`:`<div class="empty">No items added to this PO yet.</div>`}
   <div class="row" style="margin-top:12px"><button class="btn" onclick="addOrder()">Save Complete PO</button><button class="btn ghost" onclick="clearOrderDraft()">Clear Draft</button></div></div>
   ${editor}<div class="card"><h2>PO History (${Object.keys(groups).length} POs / ${state.orders.length} items)</h2><p class="hint">Change Payment or Status directly, or choose Edit to correct the full PO.</p>${history?`<div style="overflow-x:auto"><table><tr><th>PO</th><th>Customer</th><th>Items</th><th class="num">Units</th><th class="num">Total</th><th>Payment</th><th>Status</th><th>Actions</th></tr>${history}</table></div>`:`<div class="empty">No orders logged yet.</div>`}</div>`;
