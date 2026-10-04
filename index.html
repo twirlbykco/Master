@@ -12,6 +12,7 @@
   .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:6px;}  .stat{background:var(--bg-cream);border-radius:14px;padding:12px 14px;}  .stat .label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600;}  .stat .value{font-family:'Quicksand',sans-serif;font-weight:700;font-size:18px;margin-top:3px;}  .stat.profit .value.pos{color:var(--success);}  .stat.profit .value.neg{color:var(--danger);}
   .loading{text-align:center;padding:60px 0;color:var(--muted);font-size:14px;}  .msg{font-size:11.5px;color:var(--muted);margin-top:4px;}  .search-box{    width:100%; margin-bottom:10px; padding:10px 14px; border-radius:12px;    border:2px solid var(--lav); font-family:inherit; font-size:13.5px; background:#fff;  }
   .audit-card{    background:var(--bg-cream); border:1.5px solid var(--border); border-radius:14px;    padding:12px 14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;  }  .audit-btn{    width:38px; height:38px; border-radius:10px; border:none; background:var(--lav-dark); color:#fff;    font-size:20px; font-weight:bold; cursor:pointer; display:inline-flex; justify-content:center; align-items:center;  }  .audit-btn:active{ background:#7C5CAC; }</style></head><body><div id="app"><div class="loading">Loading Twirlbykco Master hub…</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>const STORE_KEY = 'twirlbykco-master-system-v26';
 const DEFAULT_CATEGORIES = [  "Bespoke ClickiePals", "Bubble Alphabet Keychain", "CEF", "ClickiePals",   "Door Tag", "FlexiPals", "GrappleGear", "GrapplePets", "MimiTag",   "Mini Shaker", "Misc", "Name Stand", "Paracord", "Payment Stand",   "Pocket Pal", "Tagbuddy", "TrolleyPop"];
 const DEFAULT_EXPENSE_ITEMS = [
@@ -228,8 +229,8 @@ function normaliseShopeeDate(value){
   if(/^\d{5}(\.\d+)?$/.test(s)){const d=new Date((Number(s)-25569)*86400000);return d.toISOString().slice(0,10);}
   const d=new Date(s);return Number.isNaN(d.getTime())?'':d.toISOString().slice(0,10);
 }
-function buildShopeeImportPreview(text,fileName){
-  const rows=parseShopeeDelimitedText(text);if(rows.length<2)throw new Error('The file has no order rows.');
+function buildShopeeImportPreviewFromRows(rows,fileName){
+  if(rows.length<2)throw new Error('The file has no order rows.');
   const headers=rows[0].map(h=>String(h||'').trim());
   const col={
     order:findShopeeColumn(headers,['Order ID','Order No','Order Number','Order SN']),
@@ -240,48 +241,80 @@ function buildShopeeImportPreview(text,fileName){
     variation:findShopeeColumn(headers,['Variation Name','Model Name','Variation']),
     sku:findShopeeColumn(headers,['SKU Reference No','Parent SKU Reference No','Seller SKU','SKU']),
     qty:findShopeeColumn(headers,['Quantity','Quantity Purchased','Qty']),
-    price:findShopeeColumn(headers,['Deal Price','Original Price','Unit Price','Price']),
+    originalPrice:findShopeeColumn(headers,['Original Price']),
+    price:findShopeeColumn(headers,['Deal Price','Unit Price','Price']),
     subtotal:findShopeeColumn(headers,['Product Subtotal','Products Price Paid by Buyer','Item Subtotal']),
     total:findShopeeColumn(headers,['Grand Total','Order Total','Total Amount']),
-    buyer:findShopeeColumn(headers,['Username Buyer','Buyer Username','Buyer Name','Receiver Name'])
+    buyer:findShopeeColumn(headers,['Username Buyer','Buyer Username','Buyer Name','Receiver Name']),
+    sellerDiscount:findShopeeColumn(headers,['Seller Discount']),
+    sellerRebate:findShopeeColumn(headers,['Seller Rebate']),
+    sellerVoucher:findShopeeColumn(headers,['Discount Voucher Amount Sponsored by Seller']),
+    sellerCoin:findShopeeColumn(headers,['Coin Cashback Voucher Amount Sponsored by Seller']),
+    sellerBundle:findShopeeColumn(headers,['Seller Bundle Discount']),
+    buyerShipping:findShopeeColumn(headers,['Buyer Paid Shipping Fee']),
+    shippingRebate:findShopeeColumn(headers,['Shipping Rebate Estimate']),
+    reverseShipping:findShopeeColumn(headers,['Reverse Shipping Fee']),
+    estimatedShipping:findShopeeColumn(headers,['Estimated Shipping Fee'])
   };
-  if(col.order<0)throw new Error('Order ID column was not found. Please export Shopee Order Details as CSV.');
+  if(col.order<0)throw new Error('Order ID column was not found. Please use Shopee Order Details export.');
   if(col.date<0)throw new Error('Order Creation Date column was not found.');
   const feeColumns=headers.map((h,i)=>({i,n:normaliseShopeeHeader(h),label:h})).filter(x=>['commissionfee','servicefee','transactionfee','amscommissionfee','actualshippingfee','sellertransactionfee'].some(k=>x.n.includes(k))&&!x.n.includes('buyer'));
   const groups={};let skippedRows=0;
   rows.slice(1).forEach(row=>{
     const orderNo=String(row[col.order]||'').trim();const date=normaliseShopeeDate(row[col.date]);
     if(!orderNo||!date){skippedRows++;return;}
-    const qty=Math.max(1,parseInt(row[col.qty],10)||1),unitPrice=col.price>=0?Math.abs(parseShopeeMoney(row[col.price])):0;
-    let lineTotal=col.subtotal>=0?Math.abs(parseShopeeMoney(row[col.subtotal])):0;if(!lineTotal)lineTotal=unitPrice*qty;
-    if(!groups[orderNo])groups[orderNo]={orderNo,date,paidTime:col.paid>=0?String(row[col.paid]||'').trim():'',sourceStatus:col.status>=0?String(row[col.status]||'').trim():'',customer:col.buyer>=0?String(row[col.buyer]||'').trim():'Shopee Customer',items:[],orderTotals:[],feeValues:{}};
+    const qty=Math.max(1,parseInt(row[col.qty],10)||1),dealPrice=col.price>=0?Math.abs(parseShopeeMoney(row[col.price])):0;
+    const productSubtotal=col.subtotal>=0?Math.abs(parseShopeeMoney(row[col.subtotal])):dealPrice*qty;
+    const itemDiscountIndex=col.sellerDiscount>=0?col.sellerDiscount:col.sellerRebate;
+    const itemDiscount=itemDiscountIndex>=0?Math.abs(parseShopeeMoney(row[itemDiscountIndex])):0;
+    const originalPrice=col.originalPrice>=0?Math.abs(parseShopeeMoney(row[col.originalPrice])):0;
+    const merchandiseLineTotal=originalPrice?originalPrice*qty:productSubtotal+itemDiscount;
+    if(!groups[orderNo])groups[orderNo]={orderNo,date,paidTime:col.paid>=0?String(row[col.paid]||'').trim():'',sourceStatus:col.status>=0?String(row[col.status]||'').trim():'',customer:col.buyer>=0?String(row[col.buyer]||'').trim():'Shopee Customer',items:[],orderTotals:[],feeValues:{},orderValues:{}};
     const group=groups[orderNo];if(date<group.date)group.date=date;
     if(col.total>=0){const t=Math.abs(parseShopeeMoney(row[col.total]));if(t)group.orderTotals.push(t);}
     feeColumns.forEach(f=>{const v=parseShopeeMoney(row[f.i]);if(v)(group.feeValues[f.i]||(group.feeValues[f.i]=[])).push(v);});
-    group.items.push({productName:col.product>=0?String(row[col.product]||'').trim():'Shopee Imported Item',variation:col.variation>=0?String(row[col.variation]||'').trim():'',sku:col.sku>=0?String(row[col.sku]||'').trim():'',qty,unitPrice,lineTotal});
+    [col.sellerVoucher,col.sellerCoin,col.sellerBundle,col.buyerShipping,col.shippingRebate,col.reverseShipping,col.estimatedShipping].filter(i=>i>=0).forEach(i=>{const v=parseShopeeMoney(row[i]);(group.orderValues[i]||(group.orderValues[i]=[])).push(v);});
+    group.items.push({productName:col.product>=0?String(row[col.product]||'').trim():'Shopee Imported Item',variation:col.variation>=0?String(row[col.variation]||'').trim():'',sku:col.sku>=0?String(row[col.sku]||'').trim():'',qty,unitPrice:originalPrice||dealPrice,lineTotal:merchandiseLineTotal,itemDiscount});
   });
+  const repeatedOrderValue=(group,index)=>{if(index<0)return 0;const values=(group.orderValues[index]||[]).map(v=>Math.abs(Number(v)||0));if(!values.length)return 0;return values.every(v=>Math.abs(v-values[0])<0.001)?values[0]:values.reduce((s,v)=>s+v,0);};
   const orders=Object.values(groups).map(group=>{
     let gross=group.items.reduce((s,i)=>s+i.lineTotal,0);
     if(!gross&&group.orderTotals.length)gross=group.orderTotals[0];
     if(!group.items.length)group.items.push({productName:'Shopee Imported Order',variation:'',sku:'',qty:1,unitPrice:gross,lineTotal:gross});
     if(gross&&!group.items.some(i=>i.lineTotal)){group.items[0].lineTotal=gross;group.items[0].unitPrice=gross/group.items[0].qty;}
     let fees=0;Object.values(group.feeValues).forEach(values=>{const abs=values.map(v=>Math.abs(v));fees+=abs.length>1&&abs.every(v=>Math.abs(v-abs[0])<0.001)?abs[0]:abs.reduce((s,v)=>s+v,0);});
+    const itemDiscounts=group.items.reduce((s,i)=>s+(Number(i.itemDiscount)||0),0);
+    const vouchers=itemDiscounts+repeatedOrderValue(group,col.sellerVoucher)+repeatedOrderValue(group,col.sellerCoin)+repeatedOrderValue(group,col.sellerBundle);
+    const shipping=Math.max(0,repeatedOrderValue(group,col.estimatedShipping)+repeatedOrderValue(group,col.reverseShipping)-repeatedOrderValue(group,col.buyerShipping)-repeatedOrderValue(group,col.shippingRebate));
+    const income=gross-vouchers-shipping-fees;
     const status=group.sourceStatus.toLowerCase();
     const payment=(group.paidTime||status.includes('completed'))?'Paid':'Pending';
     const orderStatus=status.includes('completed')||status.includes('delivered')?'Delivered':status.includes('shipped')?'Printed':'Pending Print';
-    return {...group,gross,fees,payment,orderStatus};
+    return {...group,gross,shipping,vouchers,fees,income,payment,orderStatus};
   }).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   return {fileName,headers,col,feeColumns,orders,skippedRows,duplicateCount:orders.filter(o=>state.orders.some(existing=>existing.orderNo===o.orderNo)).length};
 }
-function prepareShopeeCSVImport(event){
+function buildShopeeImportPreview(text,fileName){return buildShopeeImportPreviewFromRows(parseShopeeDelimitedText(text),fileName);}
+function prepareShopeeOrderImport(event){
   const file=event.target.files?.[0];if(!file)return;
-  if(/\.xlsx?$/i.test(file.name)){alert('Please open the Shopee Excel file and save it as CSV first.');event.target.value='';return;}
-  const reader=new FileReader();reader.onload=e=>{try{shopeeImportPreview=buildShopeeImportPreview(e.target.result,file.name);render();}catch(err){alert('Could not read Shopee CSV: '+err.message);}event.target.value='';};reader.readAsText(file);
+  const reader=new FileReader();reader.onload=e=>{try{
+    if(/\.xlsx?$/i.test(file.name)){
+      if(typeof XLSX==='undefined')throw new Error('Excel reader did not load. Refresh the page and try again.');
+      const workbook=XLSX.read(e.target.result,{type:'array'}),sheetName=workbook.SheetNames.find(n=>n.toLowerCase()==='orders')||workbook.SheetNames[0];
+      const rows=XLSX.utils.sheet_to_json(workbook.Sheets[sheetName],{header:1,raw:false,defval:''});shopeeImportPreview=buildShopeeImportPreviewFromRows(rows,file.name);
+    }else shopeeImportPreview=buildShopeeImportPreview(e.target.result,file.name);
+    render();
+  }catch(err){alert('Could not read Shopee order file: '+err.message);}event.target.value='';};
+  if(/\.xlsx?$/i.test(file.name))reader.readAsArrayBuffer(file);else reader.readAsText(file);
 }
 function cancelShopeeImport(){shopeeImportPreview=null;render();}
 function matchShopeeProduct(item){
   const sku=String(item.sku||'').toLowerCase().trim(),name=String(item.productName||'').toLowerCase().trim();
-  return state.products.find(p=>sku&&String(p.sku||'').toLowerCase()===sku)||state.products.find(p=>String(p.name||'').toLowerCase()===name)||null;
+  return state.products.find(p=>sku&&String(p.sku||'').toLowerCase()===sku)
+    ||state.products.find(p=>String(p.name||'').toLowerCase()===name)
+    ||(name.includes('clickiepals')&&name.includes('animal')&&name.includes('pot')?state.products.find(p=>p.id==='clickiepal-animal-pot-pool'):null)
+    ||(name.includes('flexipals')&&name.includes('dino')?state.products.find(p=>String(p.sku||'').toUpperCase()==='FP002'):null)
+    ||null;
 }
 function confirmShopeeCSVImport(){
   if(!shopeeImportPreview)return;
@@ -292,12 +325,14 @@ function confirmShopeeCSVImport(){
     const groupId=uid(),gross=order.gross||order.items.reduce((s,i)=>s+i.lineTotal,0);
     order.items.forEach((item,index)=>{
       const product=matchShopeeProduct(item);if(!product)unmatched++;
-      const total=item.lineTotal||item.unitPrice*item.qty;const itemFee=gross>0?order.fees*(total/gross):(index===0?order.fees:0);
-      state.orders.unshift({id:uid(),groupId,orderNo:order.orderNo,date:order.date,customer:order.customer||'Shopee Customer',channel:'Shopee',productId:product?product.id:'Shopee Imported Item',qty:item.qty,discPct:0,details:[product?'':item.productName,item.variation,item.sku?'SKU: '+item.sku:'','Imported from Shopee CSV'].filter(Boolean).join(' — '),unitPrice:item.qty?total/item.qty:item.unitPrice,totalPrice:total,shopeeShippingSubtotal:0,shopeeVoucherRebates:0,shopeeFeesCharges:-itemFee,estimatedOrderIncome:total-itemFee,shopeeFeeAmt:itemFee,shopeeShippingAmt:0,nettReceived:total-itemFee,payment:order.payment,status:order.orderStatus,stockLocation:null,imported:true,createdAt:importedAt});itemCount++;
+      const total=item.lineTotal||item.unitPrice*item.qty,ratio=gross>0?total/gross:(index===0?1:0);
+      const itemShipping=-(Number(order.shipping)||0)*ratio,itemVouchers=-(Number(order.vouchers)||0)*ratio,itemFees=-(Number(order.fees)||0)*ratio,itemIncome=total+itemShipping+itemVouchers+itemFees;
+      state.orders.unshift({id:uid(),groupId,orderNo:order.orderNo,date:order.date,customer:order.customer||'Shopee Customer',channel:'Shopee',productId:product?product.id:'Shopee Imported Item',qty:item.qty,discPct:0,details:[product?'':item.productName,item.variation,item.sku?'SKU: '+item.sku:'','Imported from Shopee order file'].filter(Boolean).join(' — '),unitPrice:item.qty?total/item.qty:item.unitPrice,totalPrice:total,shopeeShippingSubtotal:itemShipping,shopeeVoucherRebates:itemVouchers,shopeeFeesCharges:itemFees,estimatedOrderIncome:itemIncome,shopeeFeeAmt:Math.abs(itemVouchers)+Math.abs(itemFees),shopeeShippingAmt:Math.abs(itemShipping),nettReceived:itemIncome,payment:order.payment,status:order.orderStatus,stockLocation:null,imported:true,createdAt:importedAt});itemCount++;
     });
-    if(order.fees>0&&!state.expenses.some(e=>e.id==='exp_shopee_'+order.orderNo))state.expenses.unshift({id:'exp_shopee_'+order.orderNo,date:order.date,category:'Platform Fees',item:'Shopee Fees ('+order.orderNo+')',vendor:'Shopee',curr:'SGD',rawCost:order.fees,costSgd:order.fees,createdAt:importedAt});
+    const deductions=(Number(order.shipping)||0)+(Number(order.vouchers)||0)+(Number(order.fees)||0);
+    if(deductions>0&&!state.expenses.some(e=>e.id==='exp_shopee_'+order.orderNo))state.expenses.unshift({id:'exp_shopee_'+order.orderNo,date:order.date,category:'Platform Fees',item:'Shopee Deductions ('+order.orderNo+')',vendor:'Shopee',curr:'SGD',rawCost:deductions,costSgd:deductions,createdAt:importedAt});
   });
-  const latest=fresh[fresh.length-1];state.syncCheckpoints.shopee={throughDate:latest.date,lastRef:latest.orderNo,note:'Imported '+shopeeImportPreview.fileName,updatedAt:importedAt};state.syncHistory.unshift({id:uid(),type:'shopee',throughDate:latest.date,lastRef:latest.orderNo,note:'CSV import: '+shopeeImportPreview.fileName,updatedAt:importedAt});state.syncHistory=state.syncHistory.slice(0,40);
+  const latest=fresh[fresh.length-1];state.syncCheckpoints.shopee={throughDate:latest.date,lastRef:latest.orderNo,note:'Imported '+shopeeImportPreview.fileName,updatedAt:importedAt};state.syncHistory.unshift({id:uid(),type:'shopee',throughDate:latest.date,lastRef:latest.orderNo,note:'Shopee import: '+shopeeImportPreview.fileName,updatedAt:importedAt});state.syncHistory=state.syncHistory.slice(0,40);
   const importedOrders=fresh.length;shopeeImportPreview=null;saveState();render();alert('Imported '+importedOrders+' Shopee orders ('+itemCount+' item rows). '+unmatched+' item rows were not matched to the catalog; inventory was not changed.');
 }
 function addFilament(){  const vendor = document.getElementById('fil-vendor').value;  const brand = document.getElementById('fil-brand').value.trim();  const color = document.getElementById('fil-color').value.trim();  const costRmb = parseFloat(document.getElementById('fil-rmb').value) || 0;  const costSgd = costRmb > 0 ? (costRmb * state.cnyRate) : (parseFloat(document.getElementById('fil-sgd').value) || 0);  const weightGrams = parseInt(document.getElementById('fil-weight').value) || 1000;  if(!brand) return;
@@ -476,11 +511,11 @@ function renderTabs(){  const activeProducts=state.products.filter(p=>!p.archive
   const dueCount=['expenses','shopee'].filter(type=>{const days=trackerDaysOld(state.syncCheckpoints[type]?.throughDate);return days===null||days>state.trackerDueDays;}).length;
   const tabs = [    ['summary', '📊 P&L'],    ['tracker', `✅ Update Tracker${dueCount?' ('+dueCount+')':''}`],    ['quickstock', '⚡ Quick Stock Count'],    ['audit', '📱 Walk Locker Audit'],    ['printqueue', `🛈 Print Queue (${needPrint + needRestock})`],    ['inventory', `📦 Catalog (${activeProducts.length})`],    ['orders', `🛒 Orders (${state.orders.length})`],    ['log', '📝 Locker Activity'],    ['expenses', `💸 Expenses (${state.expenses.length})`],    ['filament', '🧵 Filament Stock'],    ['costformula', '📐 Cost Formulas'],    ['calculator', '⚡ SG Calculator']  ];  return `<div class="tabs">${tabs.map(([id,label])=>    `<button class="tab ${state.activeTab===id?'active':''}" onclick="setTab('${id}')">${label}</button>`  ).join('')}</div>`;}
 function renderShopeeImportPanel(){
-  if(!shopeeImportPreview)return `<div class="card"><h2>📥 Import Shopee Orders from CSV</h2><p class="hint">Download Shopee Order Details, save it as CSV, then upload it here. You will see a preview before anything is added.</p><div class="row"><label class="btn" style="display:inline-block">Choose Shopee CSV<input type="file" accept=".csv,.txt,text/csv" onchange="prepareShopeeCSVImport(event)" style="display:none"></label><div class="msg">Duplicate order numbers are skipped. Imported historical orders do not change inventory.</div></div></div>`;
+  if(!shopeeImportPreview)return `<div class="card"><h2>📥 Import Shopee Orders</h2><p class="hint">Upload the Shopee Order Details Excel file directly. CSV is also supported. You will see a preview before anything is added.</p><div class="row"><label class="btn" style="display:inline-block">Choose Shopee Excel / CSV<input type="file" accept=".xlsx,.xls,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onchange="prepareShopeeOrderImport(event)" style="display:none"></label><div class="msg">Orders are grouped by Order ID. Repeated fees are counted once, duplicates are skipped, and historical imports do not change inventory.</div></div></div>`;
   const p=shopeeImportPreview,header=i=>i>=0?esc(p.headers[i]):'Not found';
   const fresh=p.orders.length-p.duplicateCount;
-  const rows=p.orders.slice(0,10).map(o=>`<tr><td>${esc(o.date)}</td><td><b>${esc(o.orderNo)}</b></td><td class="num">${o.items.length}</td><td class="num">$${fmt(o.gross)}</td><td class="num">$${fmt(o.fees)}</td><td>${state.orders.some(existing=>existing.orderNo===o.orderNo)?'<span class="pill low">Duplicate — skip</span>':'<span class="pill ok">Ready</span>'}</td></tr>`).join('');
-  return `<div class="card" style="border:2px solid var(--lav)"><h2>📥 Shopee CSV Preview</h2><p class="hint"><b>${esc(p.fileName)}</b> — review the detected fields before importing.</p><div class="summary-grid"><div class="stat"><div class="label">Orders Found</div><div class="value">${p.orders.length}</div></div><div class="stat"><div class="label">New Orders</div><div class="value">${fresh}</div></div><div class="stat"><div class="label">Duplicates Skipped</div><div class="value">${p.duplicateCount}</div></div><div class="stat"><div class="label">Rows Skipped</div><div class="value">${p.skippedRows}</div></div></div><div class="msg" style="margin-top:12px"><b>Detected:</b> Order = ${header(p.col.order)} · Date = ${header(p.col.date)} · Product = ${header(p.col.product)} · Amount = ${header(p.col.subtotal>=0?p.col.subtotal:p.col.total)} · Fees = ${p.feeColumns.length?p.feeColumns.map(f=>esc(f.label)).join(', '):'Not found (you can edit fees later)'}</div><div style="overflow-x:auto;margin-top:12px"><table><tr><th>Date</th><th>Order</th><th class="num">Item Rows</th><th class="num">Sales</th><th class="num">Fees</th><th>Import Status</th></tr>${rows}</table></div>${p.orders.length>10?`<div class="msg">Showing the first 10 of ${p.orders.length} orders.</div>`:''}<div class="row" style="margin-top:14px"><button class="btn" onclick="confirmShopeeCSVImport()" ${fresh?'':'disabled'}>Import ${fresh} New Orders</button><button class="btn ghost" onclick="cancelShopeeImport()">Cancel</button></div></div>`;
+  const rows=p.orders.slice(0,10).map(o=>`<tr><td>${esc(o.date)}</td><td><b>${esc(o.orderNo)}</b></td><td class="num">${o.items.length}</td><td class="num">$${fmt(o.gross)}</td><td class="num">−$${fmt(o.shipping)}</td><td class="num">−$${fmt(o.vouchers)}</td><td class="num">−$${fmt(o.fees)}</td><td class="num"><b>$${fmt(o.income)}</b></td><td>${state.orders.some(existing=>existing.orderNo===o.orderNo)?'<span class="pill low">Duplicate — skip</span>':'<span class="pill ok">Ready</span>'}</td></tr>`).join('');
+  return `<div class="card" style="border:2px solid var(--lav)"><h2>📥 Shopee Import Preview</h2><p class="hint"><b>${esc(p.fileName)}</b> — review the detected order income before importing.</p><div class="summary-grid"><div class="stat"><div class="label">Orders Found</div><div class="value">${p.orders.length}</div></div><div class="stat"><div class="label">New Orders</div><div class="value">${fresh}</div></div><div class="stat"><div class="label">Duplicates Skipped</div><div class="value">${p.duplicateCount}</div></div><div class="stat"><div class="label">Rows Skipped</div><div class="value">${p.skippedRows}</div></div></div><div class="msg" style="margin-top:12px"><b>Detected:</b> Order = ${header(p.col.order)} · Date = ${header(p.col.date)} · Product = ${header(p.col.product)} · Merchandise = ${header(p.col.originalPrice>=0?p.col.originalPrice:p.col.subtotal)} · Fees = ${p.feeColumns.length?p.feeColumns.map(f=>esc(f.label)).join(', '):'Not found (you can edit fees later)'}</div><div style="overflow-x:auto;margin-top:12px"><table><tr><th>Date</th><th>Order</th><th class="num">Item Rows</th><th class="num">Merchandise</th><th class="num">Shipping</th><th class="num">Vouchers &amp; Rebates</th><th class="num">Fees</th><th class="num">Est. Income</th><th>Import Status</th></tr>${rows}</table></div>${p.orders.length>10?`<div class="msg">Showing the first 10 of ${p.orders.length} orders.</div>`:''}<div class="row" style="margin-top:14px"><button class="btn" onclick="confirmShopeeCSVImport()" ${fresh?'':'disabled'}>Import ${fresh} New Orders</button><button class="btn ghost" onclick="cancelShopeeImport()">Cancel</button></div></div>`;
 }
 function renderUpdateTracker(){
   const today=new Date().toISOString().slice(0,10);
