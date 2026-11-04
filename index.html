@@ -787,6 +787,7 @@ function renderUpdateTracker(){
   const recentExpenseRows=latestExpenses.map(e=>`<tr><td>${esc(e.date)}</td><td><b>${esc(e.item)}</b></td><td>${esc(e.category||'Other')}</td><td class="num"><b>$${fmt(e.costSgd)}</b></td></tr>`).join('');
   const historyRows=state.syncHistory.slice(0,15).map(h=>`<tr><td>${formatUpdatedAt(h.updatedAt)}</td><td><span class="pill cat">${h.type==='shopee'?'Shopee':'Expenses'}</span></td><td>${esc(h.throughDate)}</td><td>${esc(h.lastRef||'—')}</td><td>${esc(h.note||'—')}</td><td><button class="icon-btn" onclick="deleteTrackerHistory('${h.id}')">✕</button></td></tr>`).join('');
   return `<div class="card"><h2>✅ Data Update Tracker</h2><p class="hint">Use “Updated Through” for the date covered by your receipts or Shopee report—not the date you are doing the data entry.</p><div class="row"><div class="field" style="max-width:220px"><label>Remind Me After</label><select onchange="state.trackerDueDays=Number(this.value);saveState();render();"><option value="3" ${state.trackerDueDays===3?'selected':''}>3 days</option><option value="7" ${state.trackerDueDays===7?'selected':''}>7 days</option><option value="14" ${state.trackerDueDays===14?'selected':''}>14 days</option><option value="30" ${state.trackerDueDays===30?'selected':''}>30 days</option></select></div></div></div>
+  ${renderExpenseVendorTracker()}
   ${renderShopeeImportPanel()}${renderShopeeIncomePanel()}
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px">${checkpointCard('expenses','💸 Expense Updates','Mark the last receipt date that has been fully entered. Then future you knows exactly where to continue.')}${checkpointCard('shopee','🛍️ Shopee Sales Updates','Mark the last Shopee order or report date that has been entered and checked.')}</div>
   <div class="card"><h2>🛍️ Shopee — ${currentKey} Summary</h2><div class="summary-grid"><div class="stat"><div class="label">Orders</div><div class="value">${monthShopee.length}</div></div><div class="stat"><div class="label">Gross Sales</div><div class="value">$${fmt(shopeeGross)}</div></div><div class="stat"><div class="label">Shopee Fees</div><div class="value">−$${fmt(shopeeFees)}</div></div><div class="stat"><div class="label">Net Payout</div><div class="value">$${fmt(shopeeGross-shopeeFees)}</div></div><div class="stat"><div class="label">Pending Payment</div><div class="value" style="color:var(--warn)">$${fmt(shopeePending)}</div></div></div>${recentShopeeRows?`<div style="overflow-x:auto;margin-top:14px"><table><tr><th>Date</th><th>PO</th><th>Payment</th><th class="num">Gross</th><th class="num">Fees</th><th class="num">Net</th></tr>${recentShopeeRows}</table></div>`:`<div class="empty">No Shopee orders recorded yet.</div>`}</div>
@@ -928,6 +929,57 @@ function renderOrders(){
 }
 function renderLog(){  const options = state.products.map(p=>`<option value="${p.id}">${esc(p.name)} (Home: ${p.stockHome} | Locker: ${p.stockLocker})</option>`).join('');  const rows = state.movements.map(m=>{    const p = state.products.find(p=>p.id===m.productId);    const label = {sale:'🛍️ Locker Sale', restock:'🔄 Restock (Home→Locker)', adjustment:'⚠️ Shrinkage/Damage'}[m.type];    return `<tr>      <td>${m.date}</td>      <td>${label}</td>      <td>${p ? esc(p.name) : '(Deleted)'}</td>      <td class="num">${m.qty}</td>      <td class="num">${m.type==='sale' ? '$'+fmt(m.qty*m.unitPrice) : '—'}</td>      <td>${esc(m.note||'')}</td>      <td><button class="icon-btn" onclick="deleteMovement('${m.id}')">✕</button></td>    </tr>`;  }).join('');
   return `  <div class="card">    <h2>Log Toy Outpost Suntec Activity (With Home Transfer)</h2>    <div class="row">      <div class="field" style="flex:2"><label>Product</label><select id="mv-product">${options}</select></div>      <div class="field"><label>Type</label>        <select id="mv-type">          <option value="restock">Locker Restock (Deducts Home -> Adds Locker)</option>          <option value="sale">Locker Sale (Deducts Locker Stock)</option>          <option value="adjustment">Shrinkage / Loss (Deducts Locker Stock)</option>        </select>      </div>      <div class="field"><label>Qty</label><input id="mv-qty" type="number" value="1"></div>      <div class="field"><label>Date</label><input id="mv-date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>      <div class="field"><label>Note</label><input id="mv-note" placeholder="Optional"></div>      <button class="btn" onclick="logMovement()">Save Log</button>    </div>  </div>  <div class="card">    <h2>Locker Log History</h2>    ${state.movements.length===0 ? `<div class="empty">No locker activity recorded yet.</div>` : `    <table>      <tr><th>Date</th><th>Type</th><th>Product</th><th class="num">Qty</th><th class="num">Total</th><th>Note</th><th></th></tr>      ${rows}    </table>`}  </div>`;}
+function expenseVendorOptions(){
+  return [...new Set(['Other','拼多多 (Pinduoduo)','淘宝 (Taobao)','AliExpress','Shopee','Bambu Lab','SingPost',
+    ...state.expenseItems.map(i => i.vendor).filter(Boolean),
+    ...state.expenses.map(e => e.vendor).filter(Boolean)])];
+}
+
+function saveVendorExpenseCheckpoint(event){
+  event.preventDefault();
+  const form = event.currentTarget;
+  const vendor = form.dataset.vendor;
+  const date = form.elements.namedItem('checkedThrough').value;
+  const previous = state.expenseVendorCheckpoints;
+  state.expenseVendorCheckpoints = {...previous, [vendor]:date};
+  const saved = saveState();
+  if(!saved) state.expenseVendorCheckpoints = previous;
+  form.querySelector('[role="status"]').textContent = saved ? (date ? 'Saved' : 'Cleared') : 'Could not save';
+}
+
+function renderExpenseVendorTracker(){
+  const latestByVendor = new Map();
+  for(const expense of state.expenses){
+    const vendor = String(expense.vendor || '').trim();
+    // Shopee sales deductions are generated from sales, rather than purchase receipts.
+    if(!vendor || vendor === 'Other' || String(expense.id).startsWith('exp_shopee_')) continue;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(expense.date || '')) continue;
+    const previous = latestByVendor.get(vendor);
+    if(!previous || expense.date > previous.date) latestByVendor.set(vendor, expense);
+  }
+  const checkpoints = state.expenseVendorCheckpoints || {};
+  const vendors = [...new Set([...expenseVendorOptions(), ...latestByVendor.keys(), ...Object.keys(checkpoints)])]
+    .filter(v => v !== 'Other').sort((a,b) => a.localeCompare(b, 'en-SG'));
+  const today = new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Singapore'});
+  const rows = vendors.map(vendor => {
+    const latest = latestByVendor.get(vendor);
+    const checkedThrough = Object.hasOwn(checkpoints, vendor) ? checkpoints[vendor] : '';
+    return `<tr>
+      <th scope="row">${esc(vendor)}</th>
+      <td>${latest ? `<b>${esc(latest.date)}</b><div class="msg">${esc(latest.item)}</div>` : 'No purchases logged'}</td>
+      <td><form class="row" data-vendor="${esc(vendor)}" onsubmit="saveVendorExpenseCheckpoint(event)" style="min-width:245px">
+        <input class="tbl-input" type="date" name="checkedThrough" aria-label="Checked through for ${esc(vendor)}" max="${today}" value="${esc(checkedThrough)}">
+        <button class="btn ghost" type="submit">Save</button>
+        <span class="msg" role="status"></span>
+      </form></td>
+    </tr>`;
+  }).join('');
+  return `<div class="card"><h2>Expense Update Tracker by Vendor</h2>
+    <p class="hint"><b>Latest purchase logged</b> updates automatically. Set <b>Checked through</b> after you’ve reviewed all purchases through that date. Next time, start from your checked date and review any newer receipts.</p>
+    <div style="overflow-x:auto"><table><thead><tr><th>Vendor / Platform</th><th>Latest purchase logged</th><th>Checked through</th></tr></thead><tbody>${rows}</tbody></table></div>
+  </div>`;
+}
+
 function renderExpenses(){
   const categoryOptions=selected=>state.expenseCategories.map(c=>`<option value="${esc(c)}" ${c===selected?'selected':''}>${esc(c)}</option>`).join('');
   const vendorOptions=selected=>['Other','拼多多 (Pinduoduo)','淘宝 (Taobao)','AliExpress','Shopee','Bambu Lab','SingPost'].map(v=>`<option ${v===selected?'selected':''}>${esc(v)}</option>`).join('');
@@ -949,9 +1001,7 @@ function renderExpenses(){
   const editing = state.expenses.find(e => e.id === expenseEditId);
   const today = new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Singapore'});
   const currency = editing?.curr === 'RMB' ? 'RMB' : 'SGD';
-  const vendors = [...new Set(['Other','拼多多 (Pinduoduo)','淘宝 (Taobao)','AliExpress','Shopee','Bambu Lab','SingPost',
-    ...state.expenseItems.map(i => i.vendor).filter(Boolean),
-    ...state.expenses.map(e => e.vendor).filter(Boolean)])];
+  const vendors = expenseVendorOptions();
   return `<form class="card" id="expense-form" onsubmit="saveExpense(event)">
     <h2>${editing ? 'Edit Expense' : '💸 Add an Expense'}</h2>
     <p class="hint">${editing ? 'Update any details and save your changes.' : 'Enter what you bought and the cost. Add the vendor now or fill it in later from Expense History.'}</p>
@@ -974,6 +1024,7 @@ function renderExpenses(){
     <div class="msg" id="expense-status" role="status"></div>
   </form>
   <div class="card"><details><summary style="cursor:pointer;font-family:'Quicksand',sans-serif;font-weight:700">➕ Add or Manage Reusable Expense Items (${state.expenseItems.length})</summary><p class="hint" style="margin-top:10px">Save an item once, together with its normal category, vendor and currency.</p><div class="row"><div class="field" style="flex:2"><label>New Item Name</label><input id="new-exp-item" placeholder="e.g. Round Magnets" onchange="document.getElementById('new-exp-item-category').value=suggestExpenseCategoryName(this.value)"></div><div class="field"><label>Category</label><select id="new-exp-item-category">${categoryOptions('Materials')}</select></div><div class="field"><label>Default Vendor</label><select id="new-exp-item-vendor">${vendorOptions('Other')}</select></div><div class="field"><label>Currency</label><select id="new-exp-item-curr"><option>SGD</option><option>RMB</option></select></div><button class="btn" onclick="addExpenseItem()">+ Save Item</button></div><div style="overflow-x:auto;max-height:340px;margin-top:14px"><table><tr><th>Reusable Item</th><th>Category</th><th>Vendor</th><th>Currency</th><th></th></tr>${libraryRows}</table></div><div class="row" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><div class="field"><label>Add a New Category</label><input id="new-exp-category" placeholder="e.g. Photography"></div><button class="btn ghost" onclick="addExpenseCategory()">+ Add Category</button></div></details></div>
+  ${renderExpenseVendorTracker()}
   <div class="card"><h2>Expense History</h2><div class="row"><div class="field"><label>Year</label><select onchange="state.expYear=this.value;saveState();render();"><option value="All" ${state.expYear==='All'?'selected':''}>All Years</option>${years.map(y=>`<option ${state.expYear===y?'selected':''}>${y}</option>`).join('')}</select></div><div class="field"><label>Month</label><select onchange="state.expMonth=this.value;saveState();render();"><option value="All" ${state.expMonth==='All'?'selected':''}>All Months</option>${monthNames.map((name,i)=>{const value=String(i+1).padStart(2,'0');return `<option value="${value}" ${state.expMonth===value?'selected':''}>${value} - ${name}</option>`;}).join('')}</select></div><div class="field"><label>Category</label><select onchange="state.expenseFilterCategory=this.value;saveState();render();"><option value="All" ${state.expenseFilterCategory==='All'?'selected':''}>All Categories</option>${categoryOptions(state.expenseFilterCategory)}</select></div><div class="field" style="flex:2"><label>Search</label><input value="${esc(state.expenseSearch)}" placeholder="Item or vendor" onchange="state.expenseSearch=this.value;saveState();render();"></div></div><label style="display:inline-block;margin-top:10px"><input type="checkbox" ${state.expenseMissingVendor?'checked':''} onchange="state.expenseMissingVendor=this.checked;saveState();render()"> Missing vendor (${state.expenses.filter(needsVendor).length})</label><div class="summary-grid" style="margin-top:14px"><div class="stat"><div class="label">Expenses Shown</div><div class="value">${filtered.length}</div></div><div class="stat"><div class="label">Total Expenses</div><div class="value">$${fmt(total)}</div></div><div class="stat"><div class="label">Largest Category</div><div class="value" style="font-size:15px">${esc(largest[0])}</div><div class="msg">$${fmt(largest[1])}</div></div></div>${categoryBreakdown.length?`<div class="cat-bar" style="margin-top:14px">${categoryBreakdown.map(([c,v])=>`<span class="pill cat">${esc(c)}: $${fmt(v)}</span>`).join('')}</div>`:''}${rows?`<div style="overflow-x:auto;margin-top:10px"><table><tr><th>Date</th><th style="min-width:170px">Category</th><th>Description</th><th>Vendor</th><th class="num">Qty</th><th class="num">RMB</th><th class="num">SGD</th><th></th></tr>${rows}</table></div>`:`<div class="empty">No expenses match these filters.</div>`}</div>`;
 }
 function renderFilament(){  const rows = state.filaments.map(f=>{    let pct = Math.min(100, Math.round((f.weightGrams / 1000) * 100));    let pillClass = pct > 50 ? 'ok' : (pct > 20 ? 'low' : 'out');    return `<tr>      <td><b>${esc(f.brand)}</b></td>      <td>${esc(f.color)}</td>      <td>${esc(f.vendor)}</td>      <td class="num">¥${fmt(f.costRmb)} / $${fmt(f.costSgd)}</td>      <td class="num">        <input class="tbl-input num-in" style="width:80px" type="number" value="${f.weightGrams}" onchange="updateFilamentWeight('${f.id}', this.value)"> g      </td>      <td><span class="pill ${pillClass}">${pct}% Left</span></td>      <td><button class="icon-btn" onclick="deleteFilament('${f.id}')">✕</button></td>    </tr>`;  }).join('');
