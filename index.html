@@ -155,9 +155,9 @@ function migrateClickiepalPotInventory(){
   state.inventorySchemaVersion=2;
 }
 function loadState(){  try{    const loaded = localStorage.getItem(STORE_KEY);    if(loaded){      const parsed = JSON.parse(loaded);      state = Object.assign(state, parsed);      if(!state.categories || state.categories.length === 0){ state.categories = DEFAULT_CATEGORIES; }      if(!state.products || state.products.length === 0){ state.products = EXCEL_PRODUCTS; }      if(!state.monthlyRent){ state.monthlyRent = { '2026-08': 140 }; }      if(!state.pnlAdjustments){ state.pnlAdjustments = []; }      if(!Array.isArray(state.orderDraft)){ state.orderDraft = []; }      if(!state.orderHeaderDraft){ state.orderHeaderDraft = {}; }      if(!Array.isArray(state.expenseCategories) || !state.expenseCategories.length){ state.expenseCategories = ['Materials','Packaging','Shipping & Delivery','Platform Fees','Equipment & Maintenance','Marketing','Event & Booth Fees','Rent & Utilities','Software & Subscriptions','Professional Services','Other']; }      if(!Array.isArray(state.expenseItems) || !state.expenseItems.length){ state.expenseItems=DEFAULT_EXPENSE_ITEMS.map(i=>({...i})); }      if(!state.expenseFilterCategory) state.expenseFilterCategory='All';      if(state.expenseSearch===undefined) state.expenseSearch='';      if(!state.syncCheckpoints)state.syncCheckpoints={};      if(!state.syncCheckpoints.expenses)state.syncCheckpoints.expenses={throughDate:'',lastRef:'',note:'',updatedAt:''};      if(!state.syncCheckpoints.shopee)state.syncCheckpoints.shopee={throughDate:'',lastRef:'',note:'',updatedAt:''};      if(!Array.isArray(state.syncHistory))state.syncHistory=[];      if(!state.trackerDueDays)state.trackerDueDays=7;      if(state.shopeeSpxShippingFee===undefined)state.shopeeSpxShippingFee=2.30;      if(!state.outpostProductMap||typeof state.outpostProductMap!=='object')state.outpostProductMap={};      state.expenses.forEach(e=>{ if(!e.category) e.category = e.vendor==='Shopee' ? 'Platform Fees' : 'Other'; });      state.products.forEach(p=>{        if(!p.category) p.category = 'Accessories & Others';        if(p.stockHome === undefined) p.stockHome = 0;        if(p.stockLocker === undefined) p.stockLocker = 0;      });    }    migrateClickiepalPotInventory(); saveState();  }catch(e){}  render();}
-function saveState(){  try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}}
+function saveState(){  try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); return true; }catch(e){ return false; }}
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }function fmt(n){ return (Math.round(n*100)/100).toFixed(2); }function esc(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function setTab(t){ state.activeTab = t; render(); }
+function setTab(t){ if(t !== 'expenses') expenseEditId = null; state.activeTab = t; render(); }
 // ---------- DATA BACKUP & RESTORE ----------
 function exportBackupJSON(){  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));  const dlAnchor = document.createElement('a');  dlAnchor.setAttribute("href", dataStr);  dlAnchor.setAttribute("download", `Twirlbykco_Backup_${new Date().toISOString().slice(0,10)}.json`);  document.body.appendChild(dlAnchor);  dlAnchor.click();  dlAnchor.remove();}
 function importBackupJSON(event){  const file = event.target.files[0];  if(!file) return;  const reader = new FileReader();  reader.onload = function(e){    try{      const imported = JSON.parse(e.target.result);      if(imported && imported.products){        state = Object.assign(state, imported);        migrateClickiepalPotInventory();        saveState();        render();        alert('🎉 Backup restored successfully!');      } else {        alert('Invalid backup file structure.');      }    }catch(err){      alert('Error reading backup file: ' + err.message);    }  };  reader.readAsText(file);}
@@ -189,7 +189,31 @@ function logMovement(){  const productId = document.getElementById('mv-product')
   state.movements.unshift({ id: uid(), date, type, productId, qty, unitPrice: p.priceToy, note });  saveState(); render();}
 function deleteMovement(id){  if(!confirm('Delete this movement log?')) return;  state.movements = state.movements.filter(m=>m.id!==id);  saveState(); render();}
 // ---------- EXPENSES & FILAMENTS ----------
-function autoConvertExpenseCost(){  const curr = document.getElementById('exp-curr').value;  const rawCost = parseFloat(document.getElementById('exp-rawcost').value) || 0;  let sgd = rawCost;  if(curr === 'RMB'){ sgd = rawCost * state.cnyRate; }  document.getElementById('exp-costSgd').value = fmt(sgd);}
+let expenseEditId = null;
+
+function expenseFormTotals(){
+  const quantity = document.getElementById('exp-quantity').valueAsNumber;
+  const unitCost = document.getElementById('exp-unit-cost').valueAsNumber;
+  const rawCost = Number(fmt(quantity * unitCost));
+  return {quantity, unitCost, rawCost};
+}
+
+function autoConvertExpenseCost(){
+  const {rawCost} = expenseFormTotals();
+  const currency = document.getElementById('exp-curr').value;
+  document.getElementById('exp-original-total').textContent =
+    Number.isFinite(rawCost) ? (currency === 'RMB' ? '¥' : '$') + fmt(rawCost) : '—';
+  document.getElementById('exp-costSgd').value =
+    Number.isFinite(rawCost) ? fmt(rawCost * (currency === 'RMB' ? state.cnyRate : 1)) : '';
+}
+
+function openExpenseEditor(id){
+  expenseEditId = id;
+  render();
+  document.getElementById('expense-form').scrollIntoView({block:'start'});
+  document.getElementById('exp-item').focus({preventScroll:true});
+}
+
 function suggestExpenseCategoryName(name){
   const s=String(name||'').toLowerCase();
   const rules=[
@@ -220,7 +244,7 @@ function syncPresetExpense(){
   const preset=state.expenseItems.find(i=>i.id===id);if(!preset)return;
   document.getElementById('exp-item').value=preset.name;
   document.getElementById('exp-category').value=preset.category;
-  document.getElementById('exp-vendor').value=preset.vendor||'Other';
+  document.getElementById('exp-vendor').value=preset.vendor==='Other'?'':preset.vendor||'';
   document.getElementById('exp-curr').value=preset.curr||'SGD';
   const note=document.getElementById('expense-category-suggestion');if(note)note.textContent='Categorised as '+preset.category;
   autoConvertExpenseCost();
@@ -251,16 +275,45 @@ function deleteExpenseItem(id){
   if(!confirm('Remove "'+item.name+'" from your reusable items? Existing expense records will not be changed.'))return;
   state.expenseItems=state.expenseItems.filter(i=>i.id!==id);saveState();render();
 }
-function addExpense(){
-  const date=document.getElementById('exp-date').value||new Date().toISOString().slice(0,10);
-  const category=document.getElementById('exp-category').value||'Other';
-  const item=document.getElementById('exp-item').value.trim();
-  const vendor=document.getElementById('exp-vendor').value;
-  const curr=document.getElementById('exp-curr').value;
-  const rawCost=parseFloat(document.getElementById('exp-rawcost').value)||0;
-  const costSgd=parseFloat(document.getElementById('exp-costSgd').value)||0;
-  if(!item||costSgd<=0){alert('Enter an item description and a cost greater than zero.');return;}
-  state.expenses.unshift({id:uid(),date,category,item,vendor,curr,rawCost,costSgd,createdAt:new Date().toISOString()}); saveState(); render();
+function saveExpense(event){
+  event.preventDefault();
+  const existing = state.expenses.find(e => e.id === expenseEditId);
+  const date = document.getElementById('exp-date').value;
+  const category = document.getElementById('exp-category').value || 'Other';
+  const item = document.getElementById('exp-item').value.trim();
+  const vendor = document.getElementById('exp-vendor').value.trim();
+  const curr = document.getElementById('exp-curr').value;
+  const costSgd = document.getElementById('exp-costSgd').valueAsNumber;
+  let {quantity, unitCost, rawCost} = expenseFormTotals();
+  if(curr === 'SGD' && quantity === 1 && !Number.isFinite(unitCost)){
+    unitCost = rawCost = costSgd;
+  }
+  // Preserve saved amounts when editing only the details of a legacy entry.
+  const amountsUnchanged = existing && curr === (existing.curr || 'SGD') &&
+    quantity === Number(existing.quantity ?? 1) &&
+    unitCost === Number(existing.unitCost ?? existing.rawCost ?? existing.costSgd) &&
+    costSgd === Number(existing.costSgd);
+  if(!item || !Number.isFinite(rawCost) || !Number.isFinite(costSgd) ||
+      (!amountsUnchanged && (rawCost < 0 || costSgd <= 0))){
+    alert('Enter a description and valid costs. For a single SGD purchase, you can enter just the SGD total.');
+    return;
+  }
+  const entry = {
+    id: uid(), createdAt: new Date().toISOString(), ...existing,
+    date, category, item, vendor, curr, quantity, unitCost,
+    rawCost: amountsUnchanged ? existing.rawCost : rawCost, costSgd
+  };
+  const previous = state.expenses;
+  state.expenses = existing ? previous.map(e => e === existing ? entry : e) : [entry, ...previous];
+  if(!saveState()){
+    state.expenses = previous;
+    alert('The expense could not be saved in this browser. Your form is still open.');
+    return;
+  }
+  expenseEditId = null;
+  render();
+  document.getElementById('expense-status').textContent = existing ? 'Changes saved.' : 'Expense saved.';
+  if(!existing) document.getElementById('exp-item').focus();
 }
 function updateExpenseCategory(id,category){const expense=state.expenses.find(e=>e.id===id);if(expense){expense.category=category;saveState();render();}}
 function deleteExpense(id){  if(!confirm('Delete this expense entry?')) return;  state.expenses = state.expenses.filter(e=>e.id!==id);  saveState(); render();}
@@ -885,16 +938,42 @@ function renderExpenses(){
   const years=[...new Set(validDates.map(d=>d.slice(0,4)))].sort().reverse();
   const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const query=String(state.expenseSearch||'').toLowerCase().trim();
-  const filtered=state.expenses.filter(e=>{const d=String(e.date||'');return (state.expYear==='All'||d.slice(0,4)===state.expYear)&&(state.expMonth==='All'||d.slice(5,7)===state.expMonth)&&(state.expenseFilterCategory==='All'||e.category===state.expenseFilterCategory)&&(!query||String(e.item||'').toLowerCase().includes(query)||String(e.vendor||'').toLowerCase().includes(query));});
+  const needsVendor = e => !String(e.vendor || '').trim() || e.vendor === 'Other';
+  const filtered=state.expenses.filter(e=>{const d=String(e.date||'');return (state.expYear==='All'||d.slice(0,4)===state.expYear)&&(state.expMonth==='All'||d.slice(5,7)===state.expMonth)&&(state.expenseFilterCategory==='All'||e.category===state.expenseFilterCategory)&&(!state.expenseMissingVendor||needsVendor(e))&&(!query||String(e.item||'').toLowerCase().includes(query)||String(e.vendor||'').toLowerCase().includes(query));});
   const total=filtered.reduce((s,e)=>s+(Number(e.costSgd)||0),0);
   const totalsByCategory={};filtered.forEach(e=>totalsByCategory[e.category||'Other']=(totalsByCategory[e.category||'Other']||0)+(Number(e.costSgd)||0));
   const categoryBreakdown=Object.entries(totalsByCategory).sort((a,b)=>b[1]-a[1]);
   const largest=categoryBreakdown[0]||['—',0];
-  const rows=filtered.map(e=>`<tr><td>${esc(e.date)}</td><td><select class="tbl-input" aria-label="Category for ${esc(e.item)}" onchange="updateExpenseCategory('${e.id}',this.value)">${categoryOptions(e.category||'Other')}</select></td><td><b>${esc(e.item)}</b></td><td>${esc(e.vendor||'—')}</td><td class="num">${e.curr==='RMB'?'¥'+fmt(e.rawCost):'—'}</td><td class="num"><b>$${fmt(e.costSgd)}</b></td><td><button class="icon-btn" aria-label="Delete ${esc(e.item)}" onclick="deleteExpense('${e.id}')">✕</button></td></tr>`).join('');
+  const rows=filtered.map(e=>`<tr><td>${esc(e.date)}</td><td><select class="tbl-input" aria-label="Category for ${esc(e.item)}" data-id="${esc(e.id)}" onchange="updateExpenseCategory(this.dataset.id,this.value)">${categoryOptions(e.category||'Other')}</select></td><td><b>${esc(e.item)}</b></td><td>${esc(e.vendor||'—')}</td><td class="num">${esc(e.quantity ?? 1)}</td><td class="num">${e.curr==='RMB'?'¥'+fmt(e.rawCost):'—'}</td><td class="num"><b>$${fmt(e.costSgd)}</b></td><td><button class="btn ghost" type="button" data-id="${esc(e.id)}" onclick="openExpenseEditor(this.dataset.id)">Edit</button> <button class="icon-btn" aria-label="Delete ${esc(e.item)}" data-id="${esc(e.id)}" onclick="deleteExpense(this.dataset.id)">✕</button></td></tr>`).join('');
   const libraryRows=state.expenseItems.map(i=>`<tr><td><b>${esc(i.name)}</b></td><td><select class="tbl-input" onchange="updateExpenseItemField('${i.id}','category',this.value)">${categoryOptions(i.category)}</select></td><td><select class="tbl-input" onchange="updateExpenseItemField('${i.id}','vendor',this.value)">${vendorOptions(i.vendor||'Other')}</select></td><td><select class="tbl-input" onchange="updateExpenseItemField('${i.id}','curr',this.value)"><option ${i.curr==='SGD'?'selected':''}>SGD</option><option ${i.curr==='RMB'?'selected':''}>RMB</option></select></td><td><button class="icon-btn" aria-label="Remove ${esc(i.name)}" onclick="deleteExpenseItem('${i.id}')">✕</button></td></tr>`).join('');
-  return `<div class="card"><h2>💸 Add an Expense</h2><p class="hint">Choose a saved item to fill its category automatically, or type a new description and use the suggested category.</p><div class="row"><div class="field"><label>Date</label><input id="exp-date" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field" style="flex:1.5"><label>Saved Expense Item</label><select id="exp-preset" onchange="syncPresetExpense()"><option value="custom">— Type a new item —</option>${presetOptions}</select></div><div class="field" style="flex:2"><label>Item / Description</label><input id="exp-item" placeholder="e.g. Magnets, Canva subscription" onchange="suggestExpenseCategory()"><span id="expense-category-suggestion" class="msg"></span></div><div class="field"><label>Category</label><select id="exp-category">${categoryOptions('Materials')}</select></div><div class="field"><label>Vendor</label><select id="exp-vendor">${vendorOptions('Other')}</select></div></div><div class="row" style="margin-top:10px"><div class="field"><label>Currency</label><select id="exp-curr" onchange="autoConvertExpenseCost()"><option value="SGD">SGD ($)</option><option value="RMB">RMB (¥)</option></select></div><div class="field"><label>Original Cost</label><input id="exp-rawcost" type="number" min="0" step="0.01" oninput="autoConvertExpenseCost()"></div><div class="field"><label>Cost in SGD</label><input id="exp-costSgd" type="number" min="0" step="0.01"></div><button class="btn" onclick="addExpense()">Save Expense</button></div></div>
+  const editing = state.expenses.find(e => e.id === expenseEditId);
+  const today = new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Singapore'});
+  const currency = editing?.curr === 'RMB' ? 'RMB' : 'SGD';
+  const vendors = [...new Set(['Other','拼多多 (Pinduoduo)','淘宝 (Taobao)','AliExpress','Shopee','Bambu Lab','SingPost',
+    ...state.expenses.map(e => e.vendor).filter(Boolean)])];
+  return `<form class="card" id="expense-form" onsubmit="saveExpense(event)">
+    <h2>${editing ? 'Edit Expense' : '💸 Add an Expense'}</h2>
+    <p class="hint">${editing ? 'Update any details and save your changes.' : 'Enter what you bought and the cost. Add the vendor now or fill it in later from Expense History.'}</p>
+    <div class="row">
+      <div class="field"><label for="exp-date">Date</label><input id="exp-date" type="date" value="${esc(editing?.date || today)}" required></div>
+      ${editing ? '' : `<div class="field" style="flex:1.5"><label for="exp-preset">Saved Expense Item</label><select id="exp-preset" onchange="syncPresetExpense()"><option value="custom">— Type a new item —</option>${presetOptions}</select></div>`}
+      <div class="field" style="flex:2"><label for="exp-item">Item / Description</label><input id="exp-item" value="${esc(editing?.item)}" placeholder="e.g. Filament" onchange="if(!expenseEditId) suggestExpenseCategory()" required><span id="expense-category-suggestion" class="msg"></span></div>
+      <div class="field"><label for="exp-category">Category</label><select id="exp-category">${categoryOptions(editing?.category || 'Other')}</select></div>
+      <div class="field"><label for="exp-vendor">Vendor (optional)</label><input id="exp-vendor" list="expense-vendors" value="${esc(editing?.vendor)}" placeholder="Choose or type"><datalist id="expense-vendors">${vendors.map(v=>`<option value="${esc(v)}"></option>`).join('')}</datalist></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="field"><label for="exp-curr">Currency</label><select id="exp-curr" onchange="autoConvertExpenseCost()"><option value="SGD" ${currency==='SGD'?'selected':''}>SGD ($)</option><option value="RMB" ${currency==='RMB'?'selected':''}>RMB (¥)</option></select></div>
+      <div class="field"><label for="exp-quantity">Quantity</label><input id="exp-quantity" type="number" value="${esc(editing?.quantity ?? 1)}" min="0.01" step="any" oninput="autoConvertExpenseCost()" required></div>
+      <div class="field"><label for="exp-unit-cost">Unit Cost (or full cost for quantity 1)</label><input id="exp-unit-cost" type="number" inputmode="decimal" value="${esc(String(editing?.unitCost ?? editing?.rawCost ?? editing?.costSgd ?? ''))}" step="any" oninput="autoConvertExpenseCost()"></div>
+      <div class="field"><label for="exp-original-total">Total Before Conversion</label><output id="exp-original-total" for="exp-quantity exp-unit-cost">${editing ? (currency==='RMB'?'¥':'$') + fmt(editing.rawCost ?? editing.costSgd) : '—'}</output></div>
+      <div class="field"><label for="exp-costSgd">Total in SGD (editable)</label><input id="exp-costSgd" type="number" inputmode="decimal" value="${esc(String(editing?.costSgd ?? ''))}" step="0.01" required></div>
+      <button class="btn" type="submit">${editing ? 'Save Changes' : 'Save Expense'}</button>
+      ${editing ? '<button class="btn ghost" type="button" onclick="openExpenseEditor(null)">Cancel</button>' : ''}
+    </div>
+    <div class="msg" id="expense-status" role="status"></div>
+  </form>
   <div class="card"><details><summary style="cursor:pointer;font-family:'Quicksand',sans-serif;font-weight:700">➕ Add or Manage Reusable Expense Items (${state.expenseItems.length})</summary><p class="hint" style="margin-top:10px">Save an item once, together with its normal category, vendor and currency.</p><div class="row"><div class="field" style="flex:2"><label>New Item Name</label><input id="new-exp-item" placeholder="e.g. Round Magnets" onchange="document.getElementById('new-exp-item-category').value=suggestExpenseCategoryName(this.value)"></div><div class="field"><label>Category</label><select id="new-exp-item-category">${categoryOptions('Materials')}</select></div><div class="field"><label>Default Vendor</label><select id="new-exp-item-vendor">${vendorOptions('Other')}</select></div><div class="field"><label>Currency</label><select id="new-exp-item-curr"><option>SGD</option><option>RMB</option></select></div><button class="btn" onclick="addExpenseItem()">+ Save Item</button></div><div style="overflow-x:auto;max-height:340px;margin-top:14px"><table><tr><th>Reusable Item</th><th>Category</th><th>Vendor</th><th>Currency</th><th></th></tr>${libraryRows}</table></div><div class="row" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><div class="field"><label>Add a New Category</label><input id="new-exp-category" placeholder="e.g. Photography"></div><button class="btn ghost" onclick="addExpenseCategory()">+ Add Category</button></div></details></div>
-  <div class="card"><h2>Expense History</h2><div class="row"><div class="field"><label>Year</label><select onchange="state.expYear=this.value;saveState();render();"><option value="All" ${state.expYear==='All'?'selected':''}>All Years</option>${years.map(y=>`<option ${state.expYear===y?'selected':''}>${y}</option>`).join('')}</select></div><div class="field"><label>Month</label><select onchange="state.expMonth=this.value;saveState();render();"><option value="All" ${state.expMonth==='All'?'selected':''}>All Months</option>${monthNames.map((name,i)=>{const value=String(i+1).padStart(2,'0');return `<option value="${value}" ${state.expMonth===value?'selected':''}>${value} - ${name}</option>`;}).join('')}</select></div><div class="field"><label>Category</label><select onchange="state.expenseFilterCategory=this.value;saveState();render();"><option value="All" ${state.expenseFilterCategory==='All'?'selected':''}>All Categories</option>${categoryOptions(state.expenseFilterCategory)}</select></div><div class="field" style="flex:2"><label>Search</label><input value="${esc(state.expenseSearch)}" placeholder="Item or vendor" onchange="state.expenseSearch=this.value;saveState();render();"></div></div><div class="summary-grid" style="margin-top:14px"><div class="stat"><div class="label">Expenses Shown</div><div class="value">${filtered.length}</div></div><div class="stat"><div class="label">Total Expenses</div><div class="value">$${fmt(total)}</div></div><div class="stat"><div class="label">Largest Category</div><div class="value" style="font-size:15px">${esc(largest[0])}</div><div class="msg">$${fmt(largest[1])}</div></div></div>${categoryBreakdown.length?`<div class="cat-bar" style="margin-top:14px">${categoryBreakdown.map(([c,v])=>`<span class="pill cat">${esc(c)}: $${fmt(v)}</span>`).join('')}</div>`:''}${rows?`<div style="overflow-x:auto;margin-top:10px"><table><tr><th>Date</th><th style="min-width:170px">Category</th><th>Description</th><th>Vendor</th><th class="num">RMB</th><th class="num">SGD</th><th></th></tr>${rows}</table></div>`:`<div class="empty">No expenses match these filters.</div>`}</div>`;
+  <div class="card"><h2>Expense History</h2><div class="row"><div class="field"><label>Year</label><select onchange="state.expYear=this.value;saveState();render();"><option value="All" ${state.expYear==='All'?'selected':''}>All Years</option>${years.map(y=>`<option ${state.expYear===y?'selected':''}>${y}</option>`).join('')}</select></div><div class="field"><label>Month</label><select onchange="state.expMonth=this.value;saveState();render();"><option value="All" ${state.expMonth==='All'?'selected':''}>All Months</option>${monthNames.map((name,i)=>{const value=String(i+1).padStart(2,'0');return `<option value="${value}" ${state.expMonth===value?'selected':''}>${value} - ${name}</option>`;}).join('')}</select></div><div class="field"><label>Category</label><select onchange="state.expenseFilterCategory=this.value;saveState();render();"><option value="All" ${state.expenseFilterCategory==='All'?'selected':''}>All Categories</option>${categoryOptions(state.expenseFilterCategory)}</select></div><div class="field" style="flex:2"><label>Search</label><input value="${esc(state.expenseSearch)}" placeholder="Item or vendor" onchange="state.expenseSearch=this.value;saveState();render();"></div></div><label style="display:inline-block;margin-top:10px"><input type="checkbox" ${state.expenseMissingVendor?'checked':''} onchange="state.expenseMissingVendor=this.checked;saveState();render()"> Missing vendor (${state.expenses.filter(needsVendor).length})</label><div class="summary-grid" style="margin-top:14px"><div class="stat"><div class="label">Expenses Shown</div><div class="value">${filtered.length}</div></div><div class="stat"><div class="label">Total Expenses</div><div class="value">$${fmt(total)}</div></div><div class="stat"><div class="label">Largest Category</div><div class="value" style="font-size:15px">${esc(largest[0])}</div><div class="msg">$${fmt(largest[1])}</div></div></div>${categoryBreakdown.length?`<div class="cat-bar" style="margin-top:14px">${categoryBreakdown.map(([c,v])=>`<span class="pill cat">${esc(c)}: $${fmt(v)}</span>`).join('')}</div>`:''}${rows?`<div style="overflow-x:auto;margin-top:10px"><table><tr><th>Date</th><th style="min-width:170px">Category</th><th>Description</th><th>Vendor</th><th class="num">Qty</th><th class="num">RMB</th><th class="num">SGD</th><th></th></tr>${rows}</table></div>`:`<div class="empty">No expenses match these filters.</div>`}</div>`;
 }
 function renderFilament(){  const rows = state.filaments.map(f=>{    let pct = Math.min(100, Math.round((f.weightGrams / 1000) * 100));    let pillClass = pct > 50 ? 'ok' : (pct > 20 ? 'low' : 'out');    return `<tr>      <td><b>${esc(f.brand)}</b></td>      <td>${esc(f.color)}</td>      <td>${esc(f.vendor)}</td>      <td class="num">¥${fmt(f.costRmb)} / $${fmt(f.costSgd)}</td>      <td class="num">        <input class="tbl-input num-in" style="width:80px" type="number" value="${f.weightGrams}" onchange="updateFilamentWeight('${f.id}', this.value)"> g      </td>      <td><span class="pill ${pillClass}">${pct}% Left</span></td>      <td><button class="icon-btn" onclick="deleteFilament('${f.id}')">✕</button></td>    </tr>`;  }).join('');
   return `  <div class="card">    <h2>Track Filament Inventory &amp; Vendors</h2>    <div class="row">      <div class="field"><label>Vendor</label>        <select id="fil-vendor">          <option value="淘宝 (Taobao)">淘宝 (Taobao)</option>          <option value="拼多多 (Pinduoduo)">拼多多 (Pinduoduo)</option>          <option value="Shopee">Shopee</option>          <option value="Others">Others</option>        </select>      </div>      <div class="field"><label>Brand / Material</label><input id="fil-brand" placeholder="e.g. eSun PLA+"></div>      <div class="field"><label>Color</label><input id="fil-color" placeholder="e.g. Matte Pastel Blue"></div>      <div class="field"><label>Spool Cost (RMB ¥)</label><input id="fil-rmb" type="number" step="0.1" placeholder="e.g. 45"></div>      <div class="field"><label>Spool Cost (SGD $)</label><input id="fil-sgd" type="number" step="0.1" placeholder="Or SGD"></div>      <div class="field"><label>Remaining (g)</label><input id="fil-weight" type="number" value="1000"></div>      <button class="btn" onclick="addFilament()">Add Spool</button>    </div>  </div>  <div class="card">    <h2>Filament Spools Stock</h2>    <table>      <tr><th>Brand / Material</th><th>Color</th><th>Vendor</th><th class="num">Cost</th><th class="num">Remaining Weight</th><th>Stock Level</th><th></th></tr>      ${rows}    </table>  </div>`;}
