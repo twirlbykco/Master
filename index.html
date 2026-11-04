@@ -950,6 +950,7 @@ function renderExpenses(){
   const today = new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Singapore'});
   const currency = editing?.curr === 'RMB' ? 'RMB' : 'SGD';
   const vendors = [...new Set(['Other','拼多多 (Pinduoduo)','淘宝 (Taobao)','AliExpress','Shopee','Bambu Lab','SingPost',
+    ...state.expenseItems.map(i => i.vendor).filter(Boolean),
     ...state.expenses.map(e => e.vendor).filter(Boolean)])];
   return `<form class="card" id="expense-form" onsubmit="saveExpense(event)">
     <h2>${editing ? 'Edit Expense' : '💸 Add an Expense'}</h2>
@@ -959,7 +960,7 @@ function renderExpenses(){
       ${editing ? '' : `<div class="field" style="flex:1.5"><label for="exp-preset">Saved Expense Item</label><select id="exp-preset" onchange="syncPresetExpense()"><option value="custom">— Type a new item —</option>${presetOptions}</select></div>`}
       <div class="field" style="flex:2"><label for="exp-item">Item / Description</label><input id="exp-item" value="${esc(editing?.item)}" placeholder="e.g. Filament" onchange="if(!expenseEditId) suggestExpenseCategory()" required><span id="expense-category-suggestion" class="msg"></span></div>
       <div class="field"><label for="exp-category">Category</label><select id="exp-category">${categoryOptions(editing?.category || 'Other')}</select></div>
-      <div class="field"><label for="exp-vendor">Vendor (optional)</label><input id="exp-vendor" list="expense-vendors" value="${esc(editing?.vendor)}" placeholder="Choose or type"><datalist id="expense-vendors">${vendors.map(v=>`<option value="${esc(v)}"></option>`).join('')}</datalist></div>
+      <div class="field"><label for="exp-vendor">Vendor (optional)</label><select id="exp-vendor"><option value="">— Select a vendor —</option>${vendors.map(v=>`<option value="${esc(v)}" ${v===editing?.vendor?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
     </div>
     <div class="row" style="margin-top:10px">
       <div class="field"><label for="exp-curr">Currency</label><select id="exp-curr" onchange="autoConvertExpenseCost()"><option value="SGD" ${currency==='SGD'?'selected':''}>SGD ($)</option><option value="RMB" ${currency==='RMB'?'selected':''}>RMB (¥)</option></select></div>
