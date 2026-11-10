@@ -747,7 +747,127 @@ function calculateCostSandbox(){  const grams = parseFloat(document.getElementBy
   document.getElementById('sb-res-fil').innerText = '$' + fmt(filCost);  document.getElementById('sb-res-waste').innerText = '$' + fmt(wasteCost);  document.getElementById('sb-res-acc').innerText = '$' + fmt(accCost);  document.getElementById('sb-res-pack').innerText = '$' + fmt(packCost);  document.getElementById('sb-res-elec').innerText = '$' + fmt(elecCost);  document.getElementById('sb-res-unitcost').innerText = '$' + fmt(totalUnitCost);}
 function syncCalculatorFilament(){  const fid = document.getElementById('calc-fil-select').value;  const f = state.filaments.find(f=>f.id===fid);  if(f && f.costSgd > 0){    document.getElementById('calc-filcost').value = fmt(f.costSgd);    calculatePrintCost();  }}
 function updateLocker(field, val){ state.locker[field] = parseFloat(val) || 0; saveState(); }
-function render(){  const app = document.getElementById('app');  app.innerHTML = `    ${renderHeader()}    ${renderTabs()}    ${state.activeTab==='summary' ? renderSummary() : ''}    ${state.activeTab==='tracker' ? renderUpdateTracker() : ''}    ${state.activeTab==='quickstock' ? renderQuickStock() : ''}    ${state.activeTab==='audit' ? renderAudit() : ''}    ${state.activeTab==='printqueue' ? renderPrintQueue() : ''}    ${state.activeTab==='inventory' ? renderInventory() : ''}    ${state.activeTab==='orders' ? renderOrders() : ''}    ${state.activeTab==='log' ? renderLog() : ''}    ${state.activeTab==='expenses' ? renderExpenses() : ''}    ${state.activeTab==='filament' ? renderFilament() : ''}    ${state.activeTab==='costformula' ? renderCostFormula() : ''}    ${state.activeTab==='calculator' ? renderCalculator() : ''}  `;}
+
+// ---------- RECURRING EXPENSES ----------
+function recurringMonthOffset(month, offset){
+  const [year, number] = month.split('-').map(Number);
+  return new Date(Date.UTC(year, number - 1 + offset, 1)).toISOString().slice(0,7);
+}
+function recurringToday(){
+  return new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Singapore'});
+}
+function ensureRecurringExpenses(){
+  if(Array.isArray(state.recurringExpenses)) return;
+  const start = recurringToday().slice(0,7);
+  state.recurringExpenses = [
+    {id:'rec-printer', item:'Printer instalment', vendor:'Printer instalment', category:'Equipment & Maintenance',
+      amount:196, start, end:recurringMonthOffset(start,5), day:1, active:false, posted:{}},
+    {id:'rec-outpost', item:'Outpost locker rent', vendor:'Toy Outpost', category:'Rent & Utilities',
+      amount:90, start, end:'', day:1, active:false, rent:true, posted:{}},
+    {id:'rec-patreon', item:'Patreon licence', vendor:'Patreon', category:'Software & Subscriptions',
+      amount:'', start, end:'', day:1, active:false, posted:{}}
+  ];
+}
+function processRecurringExpenses(today = recurringToday()){
+  ensureRecurringExpenses();
+  const previous = {expenses:state.expenses, monthlyRent:state.monthlyRent, recurringExpenses:state.recurringExpenses};
+  const schedules = state.recurringExpenses.map(rule => ({...rule, posted:{...rule.posted}}));
+  const expenses = [...state.expenses];
+  const monthlyRent = {...state.monthlyRent};
+  let changed = false;
+  for(const rule of schedules){
+    if(!rule.active || !(Number(rule.amount)>0) || !/^\d{4}-\d{2}$/.test(rule.start)) continue;
+    const through = rule.end && rule.end < today.slice(0,7) ? rule.end : today.slice(0,7);
+    for(let month=rule.start; month<=through; month=recurringMonthOffset(month,1)){
+      const [year, number] = month.split('-').map(Number);
+      const lastDay = new Date(Date.UTC(year,number,0)).getUTCDate();
+      const day = Math.min(Math.max(Number(rule.day)||1,1),lastDay);
+      const date = month+'-'+String(day).padStart(2,'0');
+      if(date>today || Object.hasOwn(rule.posted,month)) continue;
+      const id = 'recurring_'+rule.id+'_'+month;
+      if(rule.rent){
+        // Monthly rent is already deducted separately by the P&L.
+        if(monthlyRent[month] === undefined) monthlyRent[month] = Number(rule.amount);
+      }else if(!expenses.some(e => e.id===id)){
+        expenses.unshift({id, date, category:rule.category, item:rule.item, vendor:rule.vendor,
+          curr:'SGD', quantity:1, unitCost:Number(rule.amount), rawCost:Number(rule.amount),
+          costSgd:Number(rule.amount), recurringId:rule.id, createdAt:new Date().toISOString()});
+      }
+      rule.posted[month] = date;
+      changed = true;
+    }
+  }
+  if(!changed) return true;
+  Object.assign(state,{expenses,monthlyRent,recurringExpenses:schedules});
+  if(saveState()) return true;
+  Object.assign(state,previous);
+  return false;
+}
+function saveRecurringExpense(event){
+  event.preventDefault();
+  const form=event.currentTarget;
+  const rule=state.recurringExpenses.find(r=>r.id===form.dataset.id);
+  if(!rule) return;
+  const values=new FormData(form);
+  const amount=Number(values.get('amount'));
+  const start=String(values.get('start'));
+  const end=String(values.get('end'));
+  const active=values.has('active');
+  if((active && !(amount>0)) || (end && end<start)){
+    alert('Enter a monthly amount greater than zero and an end month on or after the first month.');
+    return;
+  }
+  const previous={...rule};
+  Object.assign(rule,{
+    item:String(values.get('item')).trim(),vendor:String(values.get('vendor')).trim(),
+    category:String(values.get('category')),amount,start,end,day:Number(values.get('day')),active
+  });
+  if(!rule.item || !saveState()){
+    Object.assign(rule,previous);
+    alert('The schedule could not be saved. Check the description and try again.');
+    return;
+  }
+  render();
+}
+function addRecurringExpense(){
+  ensureRecurringExpenses();
+  const previous=state.recurringExpenses;
+  state.recurringExpenses=[...previous,{id:uid(),item:'New recurring expense',vendor:'',category:'Other',
+    amount:'',start:recurringToday().slice(0,7),end:'',day:1,active:false,posted:{}}];
+  if(!saveState()){state.recurringExpenses=previous;alert('Could not save the new schedule.');return;}
+  render();
+}
+function renderRecurringExpenses(){
+  const today=recurringToday();
+  const cards=state.recurringExpenses.map(rule=>{
+    const finished=rule.end && rule.end<today.slice(0,7);
+    const months=Object.keys(rule.posted||{}).sort();
+    const status=!rule.active?'Paused / not started':finished?'Finished':'Active';
+    const categoryOptions=[...new Set([...state.expenseCategories,rule.category])].map(c=>
+      `<option value="${esc(c)}" ${c===rule.category?'selected':''}>${esc(c)}</option>`).join('');
+    return `<form data-id="${esc(rule.id)}" onsubmit="saveRecurringExpense(event)" style="padding:14px;margin-top:12px;border:1px solid var(--border);border-radius:12px">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><b>${esc(rule.item)}</b><span class="pill ${rule.active?(finished?'cat':'ok'):'low'}">${status}</span></div>
+      <div class="row" style="margin-top:10px">
+        <div class="field"><label>Description</label><input name="item" aria-label="Recurring description" value="${esc(rule.item)}" required></div>
+        <div class="field"><label>Vendor</label><input name="vendor" aria-label="Recurring vendor" value="${esc(rule.vendor)}"></div>
+        <div class="field"><label>Category</label><select name="category" aria-label="Recurring category">${categoryOptions}</select></div>
+        <div class="field"><label>Monthly SGD</label><input name="amount" aria-label="Monthly SGD amount" type="number" min="0" step="0.01" value="${esc(String(rule.amount))}" placeholder="Enter amount"></div>
+        <div class="field"><label>First month to enter</label><input name="start" aria-label="First recurring month" type="month" value="${esc(rule.start)}" required></div>
+        <div class="field"><label>Final month (optional)</label><input name="end" aria-label="Final recurring month" type="month" value="${esc(rule.end)}"></div>
+        <div class="field"><label>Day of month</label><input name="day" aria-label="Day of month" type="number" min="1" max="31" value="${rule.day}" required></div>
+        <label><input name="active" type="checkbox" ${rule.active?'checked':''}> Active</label>
+        <button class="btn" type="submit">Save Schedule</button>
+      </div>
+      <div class="msg">${rule.rent?'Appears under Locker Rent in P&amp;L. Existing rent amounts for a month are kept.':'Due months appear in Expense History and can be edited there.'} ${months.length?'Processed through '+esc(months.at(-1))+'.':''}</div>
+    </form>`;
+  }).join('');
+  return `<div class="card"><h2>🔁 Monthly Recurring Expenses</h2>
+    <p class="hint">Choose the first month you still need to enter, confirm the payment day, tick Active and save. Due months are added when you open the Hub, including missed months. Amount changes apply to months still to be added. A final month ends the schedule automatically.</p>
+    ${cards}<button class="btn ghost" style="margin-top:12px" onclick="addRecurringExpense()">+ Add Recurring Expense</button>
+  </div>`;
+}
+
+function render(){  const recurringSaved=processRecurringExpenses(); const app = document.getElementById('app');  app.innerHTML = `    ${renderHeader()}    ${renderTabs()} ${recurringSaved?'':'<div class="card" role="alert">Recurring expenses could not be saved. Reopen the Hub to retry.</div>'}    ${state.activeTab==='summary' ? renderSummary() : ''}    ${state.activeTab==='tracker' ? renderUpdateTracker() : ''}    ${state.activeTab==='quickstock' ? renderQuickStock() : ''}    ${state.activeTab==='audit' ? renderAudit() : ''}    ${state.activeTab==='printqueue' ? renderPrintQueue() : ''}    ${state.activeTab==='inventory' ? renderInventory() : ''}    ${state.activeTab==='orders' ? renderOrders() : ''}    ${state.activeTab==='log' ? renderLog() : ''}    ${state.activeTab==='expenses' ? renderExpenses() : ''}    ${state.activeTab==='filament' ? renderFilament() : ''}    ${state.activeTab==='costformula' ? renderCostFormula() : ''}    ${state.activeTab==='calculator' ? renderCalculator() : ''}  `;}
 function renderHeader(){  return `  <div class="header">    <div class="eyebrow">Twirl by KCO — Production Hub</div>    <h1>Twirlbykco Master hub</h1>    <div class="sub">Editable Monthly Rent | Automated Shopee Fee Logging | Multi-Channel Performance Dashboard</div>    <div class="badges">      <div class="badge">🔑 Locker Fee: <input type="number" value="${state.locker.feePct}" onchange="updateLocker('feePct', this.value)"> %</div>      <div class="badge">💱 1 RMB = $<input type="number" step="0.001" value="${state.cnyRate}" onchange="state.cnyRate=parseFloat(this.value)||0.185; saveState(); render();"> SGD</div>      <div class="badge">⚡ SG Elec: $<input type="number" step="0.0001" value="${state.sgElectricityRate}" onchange="state.sgElectricityRate=parseFloat(this.value)||0.3258; saveState();"> /kWh</div>    </div>  </div>`;}
 function renderTabs(){  const activeProducts=state.products.filter(p=>!p.archived);  const needPrint = activeProducts.filter(p=>p.stockLocker < p.lowThreshold && p.stockHome < p.lowThreshold).length;  const needRestock = activeProducts.filter(p=>p.stockLocker < p.lowThreshold && p.stockHome >= p.lowThreshold).length;
   const orderPOCount=new Set(state.orders.map(o=>o.orderNo||o.groupId||o.id)).size;
@@ -1024,6 +1144,7 @@ function renderExpenses(){
     <div class="msg" id="expense-status" role="status"></div>
   </form>
   <div class="card"><details><summary style="cursor:pointer;font-family:'Quicksand',sans-serif;font-weight:700">➕ Add or Manage Reusable Expense Items (${state.expenseItems.length})</summary><p class="hint" style="margin-top:10px">Save an item once, together with its normal category, vendor and currency.</p><div class="row"><div class="field" style="flex:2"><label>New Item Name</label><input id="new-exp-item" placeholder="e.g. Round Magnets" onchange="document.getElementById('new-exp-item-category').value=suggestExpenseCategoryName(this.value)"></div><div class="field"><label>Category</label><select id="new-exp-item-category">${categoryOptions('Materials')}</select></div><div class="field"><label>Default Vendor</label><select id="new-exp-item-vendor">${vendorOptions('Other')}</select></div><div class="field"><label>Currency</label><select id="new-exp-item-curr"><option>SGD</option><option>RMB</option></select></div><button class="btn" onclick="addExpenseItem()">+ Save Item</button></div><div style="overflow-x:auto;max-height:340px;margin-top:14px"><table><tr><th>Reusable Item</th><th>Category</th><th>Vendor</th><th>Currency</th><th></th></tr>${libraryRows}</table></div><div class="row" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><div class="field"><label>Add a New Category</label><input id="new-exp-category" placeholder="e.g. Photography"></div><button class="btn ghost" onclick="addExpenseCategory()">+ Add Category</button></div></details></div>
+  ${renderRecurringExpenses()}
   ${renderExpenseVendorTracker()}
   <div class="card"><h2>Expense History</h2><div class="row"><div class="field"><label>Year</label><select onchange="state.expYear=this.value;saveState();render();"><option value="All" ${state.expYear==='All'?'selected':''}>All Years</option>${years.map(y=>`<option ${state.expYear===y?'selected':''}>${y}</option>`).join('')}</select></div><div class="field"><label>Month</label><select onchange="state.expMonth=this.value;saveState();render();"><option value="All" ${state.expMonth==='All'?'selected':''}>All Months</option>${monthNames.map((name,i)=>{const value=String(i+1).padStart(2,'0');return `<option value="${value}" ${state.expMonth===value?'selected':''}>${value} - ${name}</option>`;}).join('')}</select></div><div class="field"><label>Category</label><select onchange="state.expenseFilterCategory=this.value;saveState();render();"><option value="All" ${state.expenseFilterCategory==='All'?'selected':''}>All Categories</option>${categoryOptions(state.expenseFilterCategory)}</select></div><div class="field" style="flex:2"><label>Search</label><input value="${esc(state.expenseSearch)}" placeholder="Item or vendor" onchange="state.expenseSearch=this.value;saveState();render();"></div></div><label style="display:inline-block;margin-top:10px"><input type="checkbox" ${state.expenseMissingVendor?'checked':''} onchange="state.expenseMissingVendor=this.checked;saveState();render()"> Missing vendor (${state.expenses.filter(needsVendor).length})</label><div class="summary-grid" style="margin-top:14px"><div class="stat"><div class="label">Expenses Shown</div><div class="value">${filtered.length}</div></div><div class="stat"><div class="label">Total Expenses</div><div class="value">$${fmt(total)}</div></div><div class="stat"><div class="label">Largest Category</div><div class="value" style="font-size:15px">${esc(largest[0])}</div><div class="msg">$${fmt(largest[1])}</div></div></div>${categoryBreakdown.length?`<div class="cat-bar" style="margin-top:14px">${categoryBreakdown.map(([c,v])=>`<span class="pill cat">${esc(c)}: $${fmt(v)}</span>`).join('')}</div>`:''}${rows?`<div style="overflow-x:auto;margin-top:10px"><table><tr><th>Date</th><th style="min-width:170px">Category</th><th>Description</th><th>Vendor</th><th class="num">Qty</th><th class="num">RMB</th><th class="num">SGD</th><th></th></tr>${rows}</table></div>`:`<div class="empty">No expenses match these filters.</div>`}</div>`;
 }
